@@ -16,19 +16,18 @@ import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 # ==========================================
-# 🛡️ AUTO-SETUP DEPENDENCIES (ANTI-GAGAL)
+# 🛡️ AUTO-SETUP DEPENDENCIES (MODE PAKSA)
 # ==========================================
-# Fitur ini akan menginstall FFMPEG otomatis secara diam-diam
-# jika klien menggunakan VPS baru yang belum terinstall FFMPEG.
 def auto_setup_dependencies():
-    if shutil.which("ffmpeg") is None:
+    # Cek apakah FFMPEG ada di folder sistem Linux
+    if not os.path.exists("/usr/bin/ffmpeg") and shutil.which("ffmpeg") is None:
         try:
-            print("⚙️ KeiBot Auto-Setup: Menginstal FFMPEG di latar belakang...")
-            subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["apt-get", "install", "-y", "ffmpeg"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("✅ KeiBot Auto-Setup: FFMPEG siap!")
-        except:
-            pass
+            print("⚙️ KeiBot: Memaksa instalasi FFMPEG ke sistem Linux...")
+            # Menggunakan os.system agar dieksekusi sebagai perintah terminal asli
+            os.system("apt-get update && apt-get install -y ffmpeg")
+        except Exception as e:
+            print("Gagal auto-install:", e)
+
 auto_setup_dependencies()
 # ==========================================
 
@@ -64,9 +63,22 @@ active_tasks = []; history_tasks = []
 render_queue = queue.Queue()
 live_threads = {}; stop_flags = {}; active_stream_keys = set()
 
+# ==========================================
+# 🔍 DETEKTOR FFMPEG ANTI-GAGAL
+# ==========================================
 def get_ffmpeg_path():
+    # 1. Cek mode Windows
     local_path = os.path.join(os.path.abspath("."), "ffmpeg.exe")
-    return local_path if os.path.exists(local_path) else "ffmpeg"
+    if os.path.exists(local_path): 
+        return local_path
+    
+    # 2. Cek mode VPS Linux (Bypass systemd restriction)
+    linux_path = "/usr/bin/ffmpeg"
+    if os.path.exists(linux_path): 
+        return linux_path
+        
+    # 3. Fallback
+    return "ffmpeg"
 
 def move_to_history(task_id, final_status):
     global active_tasks, history_tasks
@@ -98,7 +110,6 @@ def upload_secret():
 def generate_tv_link():
     if not os.path.exists(CLIENT_SECRETS_FILE):
         return jsonify({"auth_url": "", "error": "File client_secret.json belum diupload!"})
-    # Berikan link full (otomatis menyesuaikan IP / Domain)
     return jsonify({"auth_url": f"http://{request.host}/device_login"})
 
 @app.route('/device_login')
@@ -381,7 +392,6 @@ def background_worker():
                 move_to_history(task_id, f"Tayang! ✅ <a href='https://youtu.be/{video_id}' target='_blank'>[Lihat]</a>")
             else: move_to_history(task_id, f"Render Selesai ✅ <a href='/{out_file}' target='_blank'>[Download]</a>")
         except Exception as e: 
-            # Fitur Laporan Error Otomatis yang jelas
             move_to_history(task_id, f"Gagal ❌ (Detail: {str(e)})")
         finally: 
             try: os.remove(f"uploads/base_a_{task_id}.mp3"); os.remove(f"uploads/base_v_{task_id}.mp4")
@@ -429,7 +439,6 @@ def run_live_stream(task_id, stream_key, audio_path, bg_paths, start_time_str, e
         else: move_to_history(task_id, "Live Selesai 🧹")
     except Exception as e:
         active_stream_keys.discard(stream_key)
-        # Fitur Laporan Error Otomatis yang jelas
         move_to_history(task_id, f"Live Gagal ❌ (Detail: {str(e)})")
 
 # ==========================================
