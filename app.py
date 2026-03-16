@@ -12,6 +12,7 @@ import shutil
 import json
 import datetime as dt
 from datetime import datetime
+import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 from google_auth_oauthlib.flow import Flow
@@ -74,39 +75,113 @@ def upload_secret():
     return jsonify({"status": "error", "message": "Gagal! Pastikan file berekstensi .json"})
 
 # ==========================================
-# ⚙️ SETTINGS & CHANNEL MANAGEMENT API
+# ⚙️ SETTINGS & CHANNEL MANAGEMENT API (SMART LOGIN MULTI-PROFIL)
 # ==========================================
 @app.route('/api/generate_tv_link')
 def generate_tv_link():
     if not os.path.exists(CLIENT_SECRETS_FILE):
         return jsonify({"auth_url": "", "error": "File client_secret.json belum diupload!"})
-    try:
-        flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES)
-        flow.redirect_uri = url_for('oauth2callback', _external=True)
-        auth_url, state = flow.authorization_url(prompt='consent select_account', access_type='offline')
-        return jsonify({"auth_url": auth_url})
-    except Exception as e: return jsonify({"auth_url": "", "error": str(e)})
+    return jsonify({"auth_url": "/device_login"})
 
-@app.route('/oauth2callback')
-def oauth2callback():
-    state = request.args.get('state')
-    try:
-        flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
-        flow.redirect_uri = url_for('oauth2callback', _external=True)
-        flow.fetch_token(authorization_response=request.url)
-        credentials = flow.credentials
-        youtube = build('youtube', 'v3', credentials=credentials)
-        res = youtube.channels().list(part="snippet", mine=True).execute()
-        if res['items']:
-            item = res['items'][0]; global database_channel
-            c_idx = next((i for i, c in enumerate(database_channel) if c['yt_id'] == item['id']), None)
-            existing_keys = database_channel[c_idx].get('stream_keys', []) if c_idx is not None else []
-            new_c = {"id": len(database_channel)+1 if c_idx is None else database_channel[c_idx]['id'], "name": item['snippet']['title'], "yt_id": item['id'], "thumbnail": item['snippet']['thumbnails']['default']['url'], "status": "Connected 🟢", "creds_json": credentials.to_json(), "stream_keys": existing_keys}
-            if c_idx is None: database_channel.append(new_c)
-            else: database_channel[c_idx] = new_c
-            save_channels(database_channel)
-        return "<h1>Aktivasi Berhasil! 🎉</h1><p>Channel Anda tersimpan di Settings. Silakan tutup tab ini.</p>"
-    except Exception as e: return f"<h1>Gagal</h1><p>{str(e)}</p>"
+@app.route('/device_login')
+def device_login():
+    if not os.path.exists(CLIENT_SECRETS_FILE): return "File rahasia tidak ditemukan!"
+    with open(CLIENT_SECRETS_FILE, 'r') as f:
+        secret_data = json.load(f)
+        client_config = secret_data.get('installed', secret_data.get('web', {}))
+        client_id = client_config.get('client_id')
+
+    res = requests.post('https://oauth2.googleapis.com/device/code', data={'client_id': client_id, 'scope': ' '.join(SCOPES)}).json()
+    if 'error' in res: return f"Error Google: {res['error']}"
+
+    html = f"""
+    <html><head><title>Aktivasi YouTube Multi-Profil</title>
+    <style>
+        body {{ font-family: Arial; text-align: center; background: #1e1e2f; color: white; padding-top: 5vh; }}
+        .box {{ background: #2a2a40; width: 550px; margin: auto; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
+        .step {{ text-align: left; margin-bottom: 25px; font-size: 16px; color: #ccc; }}
+        .input-group {{ display: flex; margin-top: 10px; }}
+        .input-group input {{ flex: 1; padding: 15px; font-size: 18px; font-weight: bold; background: #111; color: #00ffcc; border: 1px solid #444; border-radius: 8px 0 0 8px; text-align: center; }}
+        .input-group button {{ padding: 15px 25px; font-size: 16px; font-weight: bold; background: #ff0055; color: white; border: none; border-radius: 0 8px 8px 0; cursor: pointer; transition: 0.3s; }}
+        .input-group button:hover {{ background: #cc0044; }}
+        .status {{ margin-top: 30px; font-size: 16px; color: #aaa; padding: 15px; background: #1a1a2e; border-radius: 8px; border: 1px solid #333; }}
+    </style></head><body>
+        <div class="box">
+            <h2>🔗 Tambah Channel (Multi-Profil)</h2>
+            <div class="step">
+                <b>Langkah 1:</b> Copy link ini dan <b>Paste di browser / profil Chrome</b> tempat Channel YouTube target Anda berada:
+                <div class="input-group">
+                    <input type="text" id="glink" value="{res['verification_url']}" readonly>
+                    <button onclick="copyTxt('glink', this)">📋 Copy Link</button>
+                </div>
+            </div>
+            <div class="step">
+                <b>Langkah 2:</b> Masukkan <b>Kode Rahasia</b> ini di halaman tersebut untuk menyambungkan:
+                <div class="input-group">
+                    <input type="text" id="gcode" value="{res['user_code']}" readonly>
+                    <button onclick="copyTxt('gcode', this)">📋 Copy Kode</button>
+                </div>
+            </div>
+            <div class="status" id="status">⏳ Menunggu Anda memasukkan kode di profil Chrome lain...</div>
+        </div>
+        <script>
+            function copyTxt(id, btn) {{
+                var copyText = document.getElementById(id);
+                copyText.select();
+                document.execCommand("copy");
+                var oldTxt = btn.innerHTML;
+                btn.innerHTML = "✅ Copied!";
+                btn.style.background = "#00cc66";
+                setTimeout(() => {{ btn.innerHTML = oldTxt; btn.style.background = "#ff0055"; }}, 2000);
+            }}
+            function poll() {{
+                fetch('/api/poll_device_token', {{
+                    method: 'POST', headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{device_code: '{res['device_code']}'}})
+                }}).then(r => r.json()).then(data => {{
+                    if(data.status === 'success') {{
+                        document.getElementById('status').innerHTML = "✅ <b>Channel Berhasil Terhubung!</b> Mengalihkan...";
+                        document.getElementById('status').style.color = "#00ffcc";
+                        document.getElementById('status').style.borderColor = "#00ffcc";
+                        setTimeout(() => {{ window.location.href = '/'; }}, 2000);
+                    }} else if(data.status === 'pending') {{
+                        setTimeout(poll, 4000);
+                    }} else {{
+                        document.getElementById('status').innerHTML = "❌ Gagal: " + data.error;
+                    }}
+                }});
+            }}
+            setTimeout(poll, 4000);
+        </script>
+    </body></html>
+    """
+    return html
+
+@app.route('/api/poll_device_token', methods=['POST'])
+def poll_device_token():
+    device_code = request.json.get('device_code')
+    with open(CLIENT_SECRETS_FILE, 'r') as f:
+        s_data = json.load(f); conf = s_data.get('installed', s_data.get('web', {}))
+        c_id = conf.get('client_id'); c_sec = conf.get('client_secret')
+
+    res = requests.post('https://oauth2.googleapis.com/token', data={'client_id': c_id, 'client_secret': c_sec, 'device_code': device_code, 'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'}).json()
+    
+    if 'error' in res:
+        return jsonify({"status": "pending"}) if res['error'] == 'authorization_pending' else jsonify({"status": "error", "error": res['error']})
+
+    creds = Credentials(token=res['access_token'], refresh_token=res.get('refresh_token'), token_uri='https://oauth2.googleapis.com/token', client_id=c_id, client_secret=c_sec, scopes=SCOPES)
+    youtube = build('youtube', 'v3', credentials=creds)
+    chan_res = youtube.channels().list(part="snippet", mine=True).execute()
+    
+    if chan_res['items']:
+        item = chan_res['items'][0]; global database_channel
+        c_idx = next((i for i, c in enumerate(database_channel) if c['yt_id'] == item['id']), None)
+        new_c = {"id": len(database_channel)+1 if c_idx is None else database_channel[c_idx]['id'], "name": item['snippet']['title'], "yt_id": item['id'], "thumbnail": item['snippet']['thumbnails']['default']['url'], "status": "Connected 🟢", "creds_json": creds.to_json(), "stream_keys": database_channel[c_idx].get('stream_keys', []) if c_idx is not None else []}
+        if c_idx is None: database_channel.append(new_c)
+        else: database_channel[c_idx] = new_c
+        save_channels(database_channel)
+        
+    return jsonify({"status": "success"})
 
 @app.route('/api/save_stream_key', methods=['POST'])
 def save_stream_key():
@@ -227,14 +302,10 @@ def background_worker():
             for d in active_tasks:
                 if d['id'] == task_id: d['status'] = "Menyiapkan Base Audio ⚙️"
             base_audio = f"uploads/base_a_{task_id}.mp3"; c_txt = f"uploads/c_{task_id}.txt"
-            
-            # --- FIX PERTAMA (VOD AUDIO) ---
             with open(c_txt, 'w', encoding='utf-8') as f:
                 for ap in task['audio_paths']:
                     clean_ap = os.path.abspath(ap).replace('\\', '/')
                     f.write(f"file '{clean_ap}'\n")
-            # -------------------------------
-
             subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             audio = AudioBrain(); audio.load(base_audio); base_dur = audio.duration if audio.duration > 0 else 10
             
@@ -250,14 +321,10 @@ def background_worker():
                 for d in active_tasks:
                     if d['id'] == task_id: d['status'] = f"Menggandakan Video {loop_count}x 🚀"
                 loop_txt = f"uploads/loop_{task_id}.txt"
-
-                # --- FIX KEDUA (VOD LOOP) ---
                 with open(loop_txt, 'w', encoding='utf-8') as f:
                     for _ in range(loop_count):
                         clean_base = os.path.abspath(base_video).replace('\\', '/')
                         f.write(f"file '{clean_base}'\n")
-                # ----------------------------
-
                 subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', loop_txt, '-c', 'copy', out_file], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else: shutil.copy(base_video, out_file)
 
@@ -413,14 +480,10 @@ def handle_schedule_live():
 
     metadata = {"channel_yt_id": yt_id, "title": request.form.get('title', ''), "description": request.form.get('description', ''), "tags": request.form.get('tags', ''), "thumbnail_path": thumb_path}
     m_audio = f"uploads/live_{t_id}/m.mp3"; c_txt = f"uploads/live_{t_id}/c.txt"
-    
-    # --- FIX KETIGA (LIVE AUDIO) ---
     with open(c_txt, 'w') as f:
         for ap in a_ps:
             clean_ap = os.path.abspath(ap).replace('\\', '/')
             f.write(f"file '{clean_ap}'\n")
-    # -------------------------------
-
     subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', m_audio])
     
     active_tasks.append({"id": t_id, "type": "🔴 LIVE", "title": metadata['title'], "time": f"Mulai: {request.form.get('schedule_start').replace('T', ' ')}", "status": "In Queue ⏳"})
@@ -428,5 +491,4 @@ def handle_schedule_live():
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
 
 if __name__ == '__main__':
-    # --- FIX KEEMPAT (SERVER AKSES PUBLIK) ---
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
