@@ -19,7 +19,6 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 # 🛡️ AUTO-SETUP DEPENDENCIES (MURNI TANPA PSUTIL)
 # ==========================================
 def auto_setup_dependencies():
-    # Hanya menginstall FFMPEG, tidak ada instalasi library Python yang berisiko!
     if not os.path.exists("/usr/bin/ffmpeg") and shutil.which("ffmpeg") is None:
         try:
             print("⚙️ KeiBot: Menginstal FFMPEG secara otomatis...")
@@ -29,15 +28,12 @@ def auto_setup_dependencies():
 auto_setup_dependencies()
 
 def get_system_stats():
-    # Membaca RAM & CPU langsung dari jantung Linux (Tanpa install apapun!)
     try:
-        # Cek CPU Load
         load1 = os.getloadavg()[0]
         cpu_count = os.cpu_count() or 1
         cpu_pct = round((load1 / cpu_count) * 100, 1)
         if cpu_pct > 100.0: cpu_pct = 100.0
 
-        # Cek RAM dari sistem file /proc/meminfo
         mem_total = 0; mem_avail = 0
         with open('/proc/meminfo', 'r') as f:
             for line in f:
@@ -319,7 +315,9 @@ def background_worker():
                 if d['id'] == task_id: d['status'] = "Menyiapkan Base Audio ⚙️"
             base_audio = f"uploads/base_a_{task_id}.mp3"; c_txt = f"uploads/c_{task_id}.txt"
             with open(c_txt, 'w', encoding='utf-8') as f:
-                for ap in task['audio_paths']: f.write(f"file '{os.path.abspath(ap).replace('\\', '/')}'\n")
+                for ap in task['audio_paths']:
+                    c_ap = os.path.abspath(ap).replace('\\', '/')
+                    f.write(f"file '{c_ap}'\n")
             subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             audio = AudioBrain(); audio.load(base_audio); base_dur = audio.duration if audio.duration > 0 else 10
             
@@ -336,7 +334,9 @@ def background_worker():
                     if d['id'] == task_id: d['status'] = f"Menggandakan Video {loop_count}x 🚀"
                 loop_txt = f"uploads/loop_{task_id}.txt"
                 with open(loop_txt, 'w', encoding='utf-8') as f:
-                    for _ in range(loop_count): f.write(f"file '{os.path.abspath(base_video).replace('\\', '/')}'\n")
+                    for _ in range(loop_count):
+                        c_bv = os.path.abspath(base_video).replace('\\', '/')
+                        f.write(f"file '{c_bv}'\n")
                 subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', loop_txt, '-c', 'copy', out_file], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else: shutil.copy(base_video, out_file)
 
@@ -511,8 +511,8 @@ def handle_schedule_live():
     m_audio = f"uploads/live_{t_id}/m.mp3"; c_txt = f"uploads/live_{t_id}/c.txt"
     with open(c_txt, 'w') as f:
         for ap in a_ps:
-            clean_ap = os.path.abspath(ap).replace('\\', '/')
-            f.write(f"file '{clean_ap}'\n")
+            c_ap = os.path.abspath(ap).replace('\\', '/')
+            f.write(f"file '{c_ap}'\n")
     subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', m_audio])
     
     active_tasks.append({"id": t_id, "type": "🔴 LIVE", "title": metadata['title'], "time": f"Mulai: {request.form.get('schedule_start').replace('T', ' ')}", "status": "In Queue ⏳"})
