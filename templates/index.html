@@ -218,7 +218,7 @@
                     <div><label style="margin-top:15px; font-weight:bold; color:var(--text-muted);">Jadwal Tayang (Schedule Time)</label><input type="datetime-local" name="schedule" required></div>
                 </div>
                 <div class="vis-box" id="visVod" style="margin-top:25px;"></div>
-                <button type="submit" class="btn-gold">🚀 START RENDERING & UPLOAD</button>
+                <button type="submit" class="btn-gold">🚀 TAMBAHKAN KE ANTREAN (ADD TO QUEUE)</button>
             </form>
         </div>
 
@@ -247,13 +247,99 @@
                     </div>
                 </div>
                 <div class="vis-box" id="visLive" style="margin-top:25px;"></div>
-                <button type="submit" class="btn-gold" style="background:var(--secondary); color:white;">📡 START LIVE STREAMING</button>
+                <button type="submit" class="btn-gold" style="background:var(--secondary); color:white;">📡 TAMBAHKAN KE ANTREAN LIVE</button>
             </form>
         </div>
     </div>
 
     <script>
         let cachedChannels = []; let analyticsData = []; let myChartInstance = null;
+
+        // =========================================================================
+        // SISTEM "ANTREAN LOKAL" (MENGIRIM FILE SATU PER SATU KE SERVER)
+        // =========================================================================
+        let browserUploadQueue = [];
+        let isUploadingToServer = false;
+
+        function submitForm(e, api) { 
+            e.preventDefault(); 
+            let formTarget = e.target;
+            
+            // Bungkus data
+            let formData = new FormData(formTarget);
+            let title = formData.get('title') || 'Video Automation';
+            let isVod = api.includes('upload_vod');
+            let fakeId = "Q-" + Math.floor(Math.random() * 9999);
+
+            // 1. TAMBAHKAN KE "TROLI" ANTREAN BROWSER
+            browserUploadQueue.push({
+                id: fakeId,
+                api: api,
+                formData: formData,
+                title: title,
+                isVod: isVod,
+                status: '⏳ Menunggu Antrean Upload...',
+                progress: 0
+            });
+
+            // 2. INSTAN (0 DETIK): Kosongkan Form, Biar Bisa Bikin Antrean Lain
+            formTarget.reset(); 
+            formTarget.querySelectorAll('input[type=range]').forEach(el => el.dispatchEvent(new Event('input'))); 
+            switchTab('tasks'); 
+            
+            // 3. Update Tabel & Panggil Mesin Pengirim
+            updateTasksOnly(); 
+            processBrowserQueue(); 
+        }
+
+        // MESIN PENGIRIM BAHAN KE VPS (SATU PER SATU)
+        function processBrowserQueue() {
+            // Jika sedang ngirim file lain, diam saja dan tunggu gilirannya
+            if(isUploadingToServer) return;
+
+            // Cari siapa yang sedang antre paling depan
+            let taskIndex = browserUploadQueue.findIndex(t => t.status.includes('Menunggu'));
+            if(taskIndex === -1) {
+                isUploadingToServer = false; // Antrean habis
+                return;
+            }
+
+            // Mulai proses ngirim
+            isUploadingToServer = true;
+            let currentTask = browserUploadQueue[taskIndex];
+            currentTask.status = '🚀 Sedang Mengirim ke Server... 0%';
+            updateTasksOnly();
+
+            let xhr = new XMLHttpRequest();
+            xhr.open("POST", currentTask.api, true);
+
+            xhr.upload.onprogress = function(event) {
+                if (event.lengthComputable) {
+                    currentTask.progress = Math.round((event.loaded / event.total) * 100);
+                    currentTask.status = `🚀 Sedang Mengirim ke Server... ${currentTask.progress}%`;
+                }
+            };
+
+            xhr.onload = function() {
+                // Selesai dikirim! Hapus dari antrean browser (Python yang akan ambil alih di tabel)
+                browserUploadQueue.splice(taskIndex, 1);
+                isUploadingToServer = false;
+                updateTasksOnly();
+                
+                // Lanjut ke antrean berikutnya (jika masih ada)
+                processBrowserQueue(); 
+            };
+
+            xhr.onerror = function() {
+                currentTask.status = '❌ Gagal Mengirim Bahan (Cek Koneksi)';
+                isUploadingToServer = false;
+                updateTasksOnly();
+                processBrowserQueue();
+            };
+
+            xhr.send(currentTask.formData);
+        }
+        // =========================================================================
 
         // CEK STATUS API GOOGLE
         function checkApiStatus() {
@@ -264,7 +350,6 @@
             });
         }
 
-        // FUNGSI UPLOAD API
         function uploadSecret(e) {
             e.preventDefault();
             fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) })
@@ -304,7 +389,48 @@
 
         function initApp() { injectVisualizer('visVod', 'vod'); injectVisualizer('visLive', 'live'); loadChannels(); fetchAnalyticsData(); checkApiStatus(); setInterval(updateTasksOnly, 2000); }
 
-        function updateTasksOnly() { fetch('/api/get_schedule').then(r => r.json()).then(data => { const tbVOD = document.getElementById('tabelAktifVOD'); tbVOD.innerHTML = ''; const tbLive = document.getElementById('tabelAktifLive'); tbLive.innerHTML = ''; const tbH = document.getElementById('tabelHistory'); tbH.innerHTML = ''; let vodCount = 0; let liveCount = 0; data.active.forEach(t => { let btnStop = `<button class="btn-stop" onclick="stopTask(${t.id})">⏹️ STOP</button>`; let row = `<tr><td>#${t.id}</td><td style="color:var(--text-main); font-weight:bold;">${t.title}</td><td>${t.time}</td><td style="color:var(--primary); font-weight:bold;">${t.status}</td><td>${btnStop}</td></tr>`; if(t.type.includes("VOD")) { tbVOD.innerHTML += row; vodCount++; } else { tbLive.innerHTML += row; liveCount++; } }); if(vodCount === 0) tbVOD.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada VOD di antrean.</td></tr>'; if(liveCount === 0) tbLive.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada Live Stream berjalan.</td></tr>'; data.history.forEach(t => { let c = t.status.includes('❌') ? 'var(--secondary)' : 'var(--text-muted)'; tbH.innerHTML += `<tr><td>#${t.id}</td><td>${t.type}</td><td style="font-weight:bold;">${t.title}</td><td style="color:${c};">${t.status}</td></tr>`; }); document.getElementById('tm_channels').innerText = cachedChannels.length; document.getElementById('tm_active').innerText = data.active.length; document.getElementById('tm_history').innerText = data.history.length; }); }
+        function updateTasksOnly() { 
+            fetch('/api/get_schedule').then(r => r.json()).then(data => { 
+                const tbVOD = document.getElementById('tabelAktifVOD'); tbVOD.innerHTML = ''; 
+                const tbLive = document.getElementById('tabelAktifLive'); tbLive.innerHTML = ''; 
+                const tbH = document.getElementById('tabelHistory'); tbH.innerHTML = ''; 
+                let vodCount = 0; let liveCount = 0; 
+
+                // --- 1. TAMPILKAN ANTREAN LOKAL BROWSER (BELUM MASUK VPS) ---
+                browserUploadQueue.forEach(p => {
+                    let row = `<tr>
+                        <td><span style="color:var(--text-muted); font-weight:bold;">${p.id}</span></td>
+                        <td style="color:var(--text-main); font-weight:bold;">${p.title}</td>
+                        <td style="color:var(--text-muted);">---</td>
+                        <td style="color:#00ffcc; font-weight:bold;">${p.status}</td>
+                        <td><button class="btn-stop" disabled style="opacity:0.3; cursor:not-allowed;">TUNGGU</button></td>
+                    </tr>`;
+                    if(p.isVod) { tbVOD.innerHTML += row; vodCount++; }
+                    else { tbLive.innerHTML += row; liveCount++; }
+                });
+
+                // --- 2. TAMPILKAN ANTREAN ASLI (DARI MESIN PYTHON) ---
+                data.active.forEach(t => { 
+                    let btnStop = `<button class="btn-stop" onclick="stopTask(${t.id})">⏹️ STOP</button>`; 
+                    let row = `<tr><td>#${t.id}</td><td style="color:var(--text-main); font-weight:bold;">${t.title}</td><td>${t.time}</td><td style="color:var(--primary); font-weight:bold;">${t.status}</td><td>${btnStop}</td></tr>`; 
+                    if(t.type.includes("VOD")) { tbVOD.innerHTML += row; vodCount++; } 
+                    else { tbLive.innerHTML += row; liveCount++; } 
+                }); 
+
+                if(vodCount === 0) tbVOD.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada VOD di antrean.</td></tr>'; 
+                if(liveCount === 0) tbLive.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada Live Stream berjalan.</td></tr>'; 
+                
+                data.history.forEach(t => { 
+                    let c = t.status.includes('❌') ? 'var(--secondary)' : 'var(--text-muted)'; 
+                    tbH.innerHTML += `<tr><td>#${t.id}</td><td>${t.type}</td><td style="font-weight:bold;">${t.title}</td><td style="color:${c};">${t.status}</td></tr>`; 
+                }); 
+
+                document.getElementById('tm_channels').innerText = cachedChannels.length; 
+                document.getElementById('tm_active').innerText = data.active.length + browserUploadQueue.length; 
+                document.getElementById('tm_history').innerText = data.history.length; 
+            }); 
+        }
+
         function stopTask(id) { if(confirm("Yakin mematikan paksa tugas ini?")) { fetch('/api/stop_task/' + id, {method:'POST'}).then(r=>r.json()).then(d=>{ alert(d.message); updateTasksOnly(); }); } }
         
         function generateTVLink() { 
@@ -329,29 +455,6 @@
         }
 
         function copyTVUrl() { document.getElementById('tvUrl').select(); document.execCommand('copy'); alert('Link disalin!'); }
-        
-        // =========================================================================
-        // JURUS "FIRE & FORGET": 0 DETIK DELAY UPLOAD & AUTO PINDAH TAB
-        // =========================================================================
-        function submitForm(e, api) { 
-            e.preventDefault(); 
-            
-            // 1. Ambil semua file dan data dari form
-            let formData = new FormData(e.target);
-            
-            // 2. Lempar ke background secara siluman tanpa ditunggu (XMLHttpRequest API)
-            let xhr = new XMLHttpRequest();
-            xhr.open("POST", api, true);
-            xhr.send(formData);
-
-            // 3. INSTAN (0 Detik): Bersihkan isi form dan reset visualizer
-            e.target.reset(); 
-            e.target.querySelectorAll('input[type=range]').forEach(el => el.dispatchEvent(new Event('input'))); 
-            
-            // 4. INSTAN (0 Detik): Pindah Tab ke Task Monitor
-            switchTab('tasks'); 
-        }
-        // =========================================================================
 
         function injectVisualizer(cId, mode) { document.getElementById(cId).innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;"><span style="color:var(--primary); font-weight:bold;">🎨 VISUALIZER PRO SETTINGS</span><div><button type="button" class="btn-small" onclick="savePreset('${mode}')">💾 SAVE PRESET</button><button type="button" class="btn-small" onclick="loadPreset('${mode}')">📂 LOAD PRESET</button></div></div><div class="grid-3"><div class="slider-group"><label>Base Color</label><input type="color" id="${mode}_color_bot" name="color_bot" value="#38bdf8"></div><div class="slider-group"><label>Peak Color</label><input type="color" id="${mode}_color_top" name="color_top" value="#f472b6"></div><div class="slider-group"><label>Part Color</label><input type="color" id="${mode}_color_part" name="color_part" value="#ffffff"></div></div><div class="grid-3"><div class="slider-group"><label>X Pos <span class="val-badge" id="v_${mode}_px">50%</span></label><input type="range" id="${mode}_pos_x" name="pos_x" min="0" max="100" value="50" oninput="uVal('v_${mode}_px',this.value,'%')"></div><div class="slider-group"><label>Y Pos <span class="val-badge" id="v_${mode}_py">85%</span></label><input type="range" id="${mode}_pos_y" name="pos_y" min="0" max="100" value="85" oninput="uVal('v_${mode}_py',this.value,'%')"></div><div class="slider-group"><label>Width <span class="val-badge" id="v_${mode}_wp">60%</span></label><input type="range" id="${mode}_width_pct" name="width_pct" min="10" max="100" value="60" oninput="uVal('v_${mode}_wp',this.value,'%')"></div><div class="slider-group"><label>Limit <span class="val-badge" id="v_${mode}_mh">40%</span></label><input type="range" id="${mode}_max_height" name="max_height" min="10" max="100" value="40" oninput="uVal('v_${mode}_mh',this.value,'%')"></div><div class="slider-group"><label>Idle <span class="val-badge" id="v_${mode}_ih">5px</span></label><input type="range" id="${mode}_idle_height" name="idle_height" min="0" max="50" value="5" oninput="uVal('v_${mode}_ih',this.value,'px')"></div><div class="slider-group"><label>Density <span class="val-badge" id="v_${mode}_bc">64</span></label><input type="range" id="${mode}_bar_count" name="bar_count" min="10" max="200" value="64" oninput="uVal('v_${mode}_bc',this.value,'')"></div><div class="slider-group"><label>React <span class="val-badge" id="v_${mode}_r">0.66x</span></label><input type="range" id="${mode}_reactivity" name="reactivity" min="0.1" max="4.0" step="0.01" value="0.66" oninput="uVal('v_${mode}_r',this.value,'x')"></div><div class="slider-group"><label>Gravity <span class="val-badge" id="v_${mode}_g">0.08</span></label><input type="range" id="${mode}_gravity" name="gravity" min="0.01" max="0.50" step="0.01" value="0.08" oninput="uVal('v_${mode}_g',this.value,'')"></div><div class="slider-group"><label>Gap <span class="val-badge" id="v_${mode}_sp">3px</span></label><input type="range" id="${mode}_spacing" name="spacing" min="0" max="20" value="3" oninput="uVal('v_${mode}_sp',this.value,'px')"></div><div class="slider-group"><label>Part Amount <span class="val-badge" id="v_${mode}_pa">3</span></label><input type="range" id="${mode}_part_amount" name="part_amount" min="0" max="300" value="3" oninput="uVal('v_${mode}_pa',this.value,'')"></div><div class="slider-group"><label>Part Speed <span class="val-badge" id="v_${mode}_ps">1.0x</span></label><input type="range" id="${mode}_part_speed" name="part_speed" min="0.1" max="5.0" step="0.1" value="1.0" oninput="uVal('v_${mode}_ps',this.value,'x')"></div></div>`; }
         function uVal(id,v,s) { document.getElementById(id).innerText = v+s; }
