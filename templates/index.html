@@ -338,5 +338,25 @@
         function savePreset(mode) { const p = { toggles: { enable: true, spectrum: true, particles: document.getElementById(`${mode}_part_amount`).value > 0, flux_mode: false }, colors: { bot: hexToRgb(document.getElementById(`${mode}_color_bot`).value), top: hexToRgb(document.getElementById(`${mode}_color_top`).value), part: hexToRgb(document.getElementById(`${mode}_color_part`).value) }, sliders: { pos_x: document.getElementById(`${mode}_pos_x`).value / 100, pos_y: document.getElementById(`${mode}_pos_y`).value / 100, spec_width: document.getElementById(`${mode}_width_pct`).value / 100, height_limit: document.getElementById(`${mode}_max_height`).value / 100, min_height: parseFloat(document.getElementById(`${mode}_idle_height`).value), reactivity: parseFloat(document.getElementById(`${mode}_reactivity`).value), fall_speed: parseFloat(document.getElementById(`${mode}_gravity`).value), bar_count: parseFloat(document.getElementById(`${mode}_bar_count`).value), bar_gap: parseFloat(document.getElementById(`${mode}_spacing`).value), part_density: parseFloat(document.getElementById(`${mode}_part_amount`).value), part_speed: parseFloat(document.getElementById(`${mode}_part_speed`).value), flux_speed: 0.007, flux_decay: 0.69 } }; const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(p, null, 4)); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `KeiBot_${mode.toUpperCase()}.json`); dl.click(); }
         function loadPreset(mode) { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = e => { const reader = new FileReader(); reader.onload = ev => { const p = JSON.parse(ev.target.result); document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]); document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]); document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]); document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100; document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100; document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100; document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100; document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height; document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity; document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed; document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count; document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap; document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density; document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed; document.querySelectorAll(`#${mode} input[type=range]`).forEach(el => el.dispatchEvent(new Event('input'))); }; reader.readAsText(e.target.files[0]); }; input.click(); }
     </script>
+    <div id="sys-monitor" style="position: fixed; bottom: 20px; right: 20px; background: rgba(30,30,47,0.8); border: 1px solid #444; padding: 15px; border-radius: 10px; color: white; font-family: Arial; font-size: 13px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.5); backdrop-filter: blur(5px);">
+        <div style="margin-bottom: 8px; border-bottom: 1px solid #555; padding-bottom: 5px;"><b style="color:#00ffcc;">💻 SERVER LOAD</b></div>
+        <div>CPU: <span id="sys-cpu" style="font-weight:bold; color:#ff0055;">0%</span></div>
+        <div style="margin-top: 5px;">RAM: <span id="sys-ram-pct" style="font-weight:bold; color:#00cc66;">0%</span></div>
+        <div id="sys-ram-text" style="color: #aaa; font-size: 11px; margin-top: 3px;">0GB / 0GB</div>
+    </div>
+    <script>
+        // Update data otomatis setiap 3 detik
+        setInterval(() => {
+            fetch('/api/get_dashboard_stats')
+            .then(r => r.json())
+            .then(d => {
+                if(d.sys_cpu !== undefined) {
+                    document.getElementById('sys-cpu').innerText = d.sys_cpu + '%';
+                    document.getElementById('sys-ram-pct').innerText = d.sys_ram_pct + '%';
+                    document.getElementById('sys-ram-text').innerText = d.sys_ram_text;
+                }
+            }).catch(e => {});
+        }, 3000);
+    </script>
 </body>
 </html>
