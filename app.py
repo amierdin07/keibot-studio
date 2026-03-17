@@ -16,33 +16,42 @@ import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 # ==========================================
-# 🛡️ AUTO-SETUP DEPENDENCIES & MONITORING
+# 🛡️ AUTO-SETUP DEPENDENCIES (MURNI TANPA PSUTIL)
 # ==========================================
 def auto_setup_dependencies():
-    # Install ffmpeg dan psutil (untuk monitor RAM/CPU) secara diam-diam
+    # Hanya menginstall FFMPEG, tidak ada instalasi library Python yang berisiko!
     if not os.path.exists("/usr/bin/ffmpeg") and shutil.which("ffmpeg") is None:
         try:
-            print("⚙️ KeiBot: Memaksa instalasi FFMPEG & PSUTIL ke sistem Linux...")
-            os.system("apt-get update && apt-get install -y ffmpeg python3-psutil")
+            print("⚙️ KeiBot: Menginstal FFMPEG secara otomatis...")
+            os.system("apt-get update && apt-get install -y ffmpeg")
         except Exception as e: pass
-    else:
-        try: import psutil
-        except ImportError: os.system("apt-get update && apt-get install -y python3-psutil")
 
 auto_setup_dependencies()
 
 def get_system_stats():
+    # Membaca RAM & CPU langsung dari jantung Linux (Tanpa install apapun!)
     try:
-        import psutil
-        cpu = psutil.cpu_percent(interval=0.1)
-        ram = psutil.virtual_memory()
-        return {
-            "cpu": cpu, "ram_pct": ram.percent,
-            "ram_used": round(ram.used / (1024**3), 2),
-            "ram_total": round(ram.total / (1024**3), 2)
-        }
-    except:
-        return {"cpu": 0.0, "ram_pct": 0.0, "ram_used": 0.0, "ram_total": 0.0}
+        # Cek CPU Load
+        load1 = os.getloadavg()[0]
+        cpu_count = os.cpu_count() or 1
+        cpu_pct = round((load1 / cpu_count) * 100, 1)
+        if cpu_pct > 100.0: cpu_pct = 100.0
+
+        # Cek RAM dari sistem file /proc/meminfo
+        mem_total = 0; mem_avail = 0
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if 'MemTotal' in line: mem_total = int(line.split()[1])
+                elif 'MemAvailable' in line: mem_avail = int(line.split()[1])
+        
+        if mem_total > 0:
+            used = mem_total - mem_avail
+            ram_pct = round((used / mem_total) * 100, 1)
+            ram_used_gb = round(used / (1024*1024), 2)
+            ram_total_gb = round(mem_total / (1024*1024), 2)
+            return {"cpu": cpu_pct, "ram_pct": ram_pct, "ram_used": ram_used_gb, "ram_total": ram_total_gb}
+    except: pass
+    return {"cpu": 0.0, "ram_pct": 0.0, "ram_used": 0.0, "ram_total": 0.0}
 # ==========================================
 
 from google_auth_oauthlib.flow import Flow
@@ -387,18 +396,15 @@ def run_live_stream(task_id, stream_key, audio_path, bg_paths, start_time_str, e
             if d['id'] == task_id: d['status'] = "Memperbarui Metadata Live... 📡"
         channel_data = next((c for c in database_channel if c['yt_id'] == metadata['channel_yt_id']), None)
         
-        # --- PERBAIKAN JALUR BELAKANG UPDATE METADATA LIVE YOUTUBE ---
         if channel_data:
             try:
                 creds = Credentials.from_authorized_user_info(json.loads(channel_data['creds_json'])); youtube = build('youtube', 'v3', credentials=creds)
-                # Cari status siaran yang Active atau Upcoming
                 live_res = youtube.liveBroadcasts().list(part="snippet", broadcastStatus="active", broadcastType="all").execute()
                 if not live_res.get('items'):
                     live_res = youtube.liveBroadcasts().list(part="snippet", broadcastStatus="upcoming", broadcastType="all").execute()
                 
                 if live_res.get('items'):
                     b_id = live_res['items'][0]['id']
-                    # TIMPA LANGSUNG KONTANER VIDEONYA (Bypass aturan ketat Broadcast)
                     video_res = youtube.videos().list(part="snippet", id=b_id).execute()
                     if video_res.get('items'):
                         v_snip = video_res['items'][0]['snippet']
@@ -409,7 +415,6 @@ def run_live_stream(task_id, stream_key, audio_path, bg_paths, start_time_str, e
                     if metadata.get('thumbnail_path') and os.path.exists(metadata['thumbnail_path']):
                         youtube.thumbnails().set(videoId=b_id, media_body=MediaFileUpload(metadata['thumbnail_path'])).execute()
             except Exception as e: print("Live API Metadata Error:", e) 
-        # -------------------------------------------------------------
 
         for d in active_tasks:
             if d['id'] == task_id: d['status'] = "ON AIR (LIVE) 🔴"
@@ -438,7 +443,6 @@ def index(): return render_template('index.html')
 
 @app.route('/api/get_dashboard_stats')
 def get_dashboard_stats(): 
-    # API ini sekarang juga mengirim data CPU & RAM ke UI
     sys = get_system_stats()
     return jsonify({
         "channels": len(database_channel), "active_tasks": len(active_tasks), "history_tasks": len(history_tasks),
