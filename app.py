@@ -120,7 +120,7 @@ def move_to_history(task_id, final_status):
             break
 
 # ==========================================
-# ⚙️ PENGATURAN API GOOGLE
+# ⚙️ PENGATURAN API GOOGLE (REPARASI DEVICE FLOW)
 # ==========================================
 @app.route('/api/check_secret')
 def check_secret():
@@ -147,6 +147,7 @@ def device_login():
     res = requests.post('https://oauth2.googleapis.com/device/code', data={'client_id': client_id, 'scope': ' '.join(SCOPES)}).json()
     if 'error' in res: return f"Error Google: {res['error']}"
 
+    # JAVASCRIPT DI BAWAH INI SUDAH DIREPARASI UNTUK MENGHADAPI SLOW_DOWN
     html = f"""
     <html><head><title>Aktivasi YouTube Multi-Profil</title>
     <style>
@@ -190,11 +191,13 @@ def device_login():
                     if(data.status === 'success') {{
                         document.getElementById('status').innerHTML = "✅ <b>Channel Terhubung!</b> Mengalihkan...";
                         document.getElementById('status').style.color = "#00ffcc"; setTimeout(() => {{ window.location.href = '/'; }}, 2000);
-                    }} else if(data.status === 'pending') {{ setTimeout(poll, 4000);
+                    }} else if(data.status === 'pending') {{ 
+                        // Jika slow_down, script ini akan otomatis melambatkan jeda tunggunya!
+                        setTimeout(poll, data.interval || 5000);
                     }} else {{ document.getElementById('status').innerHTML = "❌ Gagal: " + data.error; }}
                 }});
             }}
-            setTimeout(poll, 4000);
+            setTimeout(poll, 5000); // Jeda awal 5 detik sesuai standar Google
         </script>
     </body></html>
     """
@@ -206,7 +209,16 @@ def poll_device_token():
     with open(CLIENT_SECRETS_FILE, 'r') as f:
         s_data = json.load(f); conf = s_data.get('installed', s_data.get('web', {})); c_id = conf.get('client_id'); c_sec = conf.get('client_secret')
     res = requests.post('https://oauth2.googleapis.com/token', data={'client_id': c_id, 'client_secret': c_sec, 'device_code': device_code, 'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'}).json()
-    if 'error' in res: return jsonify({"status": "pending"}) if res['error'] == 'authorization_pending' else jsonify({"status": "error", "error": res['error']})
+    
+    # REPARASI SISTEM PENOLAKAN GOOGLE (SLOW_DOWN)
+    if 'error' in res: 
+        err = res['error']
+        if err == 'authorization_pending':
+            return jsonify({"status": "pending", "interval": 5000}) # Tunggu normal 5 detik
+        elif err == 'slow_down':
+            return jsonify({"status": "pending", "interval": 10000}) # Melambatkan tarikan gas jadi 10 detik agar Google tenang!
+        else:
+            return jsonify({"status": "error", "error": err}) # Error beneran (seperti expired token)
 
     creds = Credentials(token=res['access_token'], refresh_token=res.get('refresh_token'), token_uri='https://oauth2.googleapis.com/token', client_id=c_id, client_secret=c_sec, scopes=SCOPES)
     youtube = build('youtube', 'v3', credentials=creds); chan_res = youtube.channels().list(part="snippet", mine=True).execute()
