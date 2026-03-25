@@ -258,19 +258,17 @@
         // =========================================================================
         // 🛠️ INTI MESIN ANTREAN: MENIRU SOFTWARE DESKTOP 100%
         // =========================================================================
-        let browserQueue = []; // Troli untuk menampung semua bahan yang belum dikirim
-        let isUploading = false; // Status apakah kurir sedang jalan atau tidak
+        let browserQueue = []; 
+        let isUploading = false; 
 
         function submitForm(e, api) { 
             e.preventDefault(); 
             let form = e.target;
             
-            // 1. Kumpulkan semua bahan dan settingan saat tombol diklik
             let formData = new FormData(form);
             let isVod = api.includes('upload_vod');
             let idAntrean = "Q-" + Math.floor(Math.random() * 9999);
             
-            // Ekstrak Settingan untuk ditampilkan di Tabel Task Monitor!
             let judul = formData.get('title') || 'Video Tanpa Judul';
             let jadwal = '';
             if(isVod) {
@@ -281,40 +279,23 @@
                 jadwal = `${start} s/d ${end}`;
             }
 
-            // 2. MASUKKAN KE DALAM ANTREAN (Agar langsung muncul di Task Monitor)
             browserQueue.push({
-                id: idAntrean,
-                api: api,
-                dataBahan: formData,
-                judul: judul,
-                jadwal: jadwal,
-                isVod: isVod,
-                status: '⏳ Mengantre untuk Dimasak',
-                progress: 0
+                id: idAntrean, api: api, dataBahan: formData, judul: judul, jadwal: jadwal, isVod: isVod,
+                status: '⏳ Mengantre untuk Dimasak', progress: 0
             });
 
-            // 3. SELESAI! Bersihkan form langsung saat ini juga!
             form.reset(); 
             form.querySelectorAll('input[type=range]').forEach(el => el.dispatchEvent(new Event('input'))); 
             
-            // 4. Bawa user pindah ke Task Monitor untuk melihat antreannya!
             switchTab('tasks'); 
-            
-            // Render ulang tabel & Panggil Koki untuk mulai memasak
             renderTableTasks(); 
             prosesKokiMasak(); 
         }
 
         function prosesKokiMasak() {
-            // Kalau koki sedang masak file lain, suruh file ini nunggu antrean.
             if(isUploading) return;
-
-            // Cari bahan pertama yang statusnya "Mengantre"
             let indexBahan = browserQueue.findIndex(t => t.status.includes('Mengantre') || t.status.includes('Gagal'));
-            if(indexBahan === -1) {
-                isUploading = false; 
-                return; // Semua bahan di troli sudah selesai dikirim
-            }
+            if(indexBahan === -1) { isUploading = false; return; }
 
             isUploading = true;
             let task = browserQueue[indexBahan];
@@ -324,24 +305,18 @@
             let xhr = new XMLHttpRequest();
             xhr.open("POST", task.api, true);
 
-            // Update indikator persen pelan-pelan
             xhr.upload.onprogress = function(event) {
                 if (event.lengthComputable) {
                     task.progress = Math.round((event.loaded / event.total) * 100);
                     task.status = `🚀 Menyiapkan Bahan (Upload)... ${task.progress}%`;
-                    renderTableTasks(); // Update tampilan tabel secara real-time
+                    renderTableTasks(); 
                 }
             };
 
             xhr.onload = function() {
-                // Selesai di-upload ke server Biznet! Hapus dari antrean lokal
                 browserQueue.splice(indexBahan, 1);
                 isUploading = false;
-                
-                // Panggil Python untuk mengambil alih tabel (Karena sekarang tugasnya ada di VPS)
                 fetchDataFromServer(); 
-                
-                // Lanjut masak bahan antrean berikutnya (jika ada)
                 prosesKokiMasak(); 
             };
 
@@ -354,7 +329,6 @@
             xhr.send(task.dataBahan);
         }
 
-        // FUNGSI UNTUK MEMBATALKAN ANTREAN SEBELUM DI-UPLOAD
         function batalAntreanLokal(id) {
             let idx = browserQueue.findIndex(t => t.id === id);
             if(idx !== -1) {
@@ -413,14 +387,22 @@
         function fetchPlaylists(yt_id, target_select_id) { const plSelect = document.getElementById(target_select_id); if(!plSelect) return; plSelect.innerHTML = '<option value="">⏳ Mengambil Playlist...</option>'; if(!yt_id) { plSelect.innerHTML = '<option value="">-- Pilih Channel --</option>'; return; } fetch('/api/get_playlists?yt_id=' + yt_id).then(r => r.json()).then(data => { plSelect.innerHTML = '<option value="">-- Tidak Dimasukkan ke Playlist --</option>'; if(data.length === 0) plSelect.innerHTML += '<option value="" disabled>Belum ada playlist</option>'; else data.forEach(pl => plSelect.innerHTML += `<option value="${pl.id}">${pl.title}</option>`); }).catch(() => { plSelect.innerHTML = '<option value="">❌ Gagal mengambil data</option>'; }); }
         let currentBaseSeconds = 0; function formatTime(secs) { const h = Math.floor(secs / 3600); const m = Math.floor((secs % 3600) / 60); const s = Math.floor(secs % 60); return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; } function getAudioDuration(file) { return new Promise((resolve) => { const audio = new Audio(URL.createObjectURL(file)); audio.addEventListener('loadedmetadata', () => resolve(audio.duration)); audio.addEventListener('error', () => resolve(0)); }); } async function calcAudioDuration(inputElem, infoId) { const files = inputElem.files; if(files.length === 0) { currentBaseSeconds = 0; document.getElementById(infoId).innerText = "Durasi Asli: 00:00:00"; updateTotalDuration('vod'); return; } document.getElementById(infoId).innerText = "Menghitung..."; let total = 0; for(let i=0; i<files.length; i++) total += await getAudioDuration(files[i]); currentBaseSeconds = total; document.getElementById(infoId).innerText = "Durasi Asli: " + formatTime(total); updateTotalDuration('vod'); } function updateTotalDuration(mode) { const loops = parseInt(document.getElementById(mode + '_loop_count').value) || 1; document.getElementById(mode + '_total_info').innerText = "Estimasi VOD: " + formatTime(currentBaseSeconds * loops); }
 
-        function initApp() { injectVisualizer('visVod', 'vod'); injectVisualizer('visLive', 'live'); loadChannels(); fetchAnalyticsData(); checkApiStatus(); setInterval(fetchDataFromServer, 2000); }
+        function initApp() { 
+            injectVisualizer('visVod', 'vod'); 
+            injectVisualizer('visLive', 'live'); 
+            loadChannels(); 
+            fetchAnalyticsData(); 
+            checkApiStatus(); 
+            setInterval(fetchDataFromServer, 2000); 
+            refreshPresetDropdowns(); 
+        }
 
         let lastServerData = {active: [], history: []};
 
         function fetchDataFromServer() {
             fetch('/api/get_schedule').then(r => r.json()).then(data => { 
                 lastServerData = data;
-                renderTableTasks(); // Gabungkan dengan antrean lokal
+                renderTableTasks(); 
             }).catch(e => {});
         }
 
@@ -430,9 +412,8 @@
             const tbH = document.getElementById('tabelHistory'); tbH.innerHTML = ''; 
             let vodCount = 0; let liveCount = 0; 
 
-            // --- 1. RENDER ANTREAN LOKAL (YANG BARU DI-ADD KE QUEUE OLEH USER) ---
             browserQueue.forEach(p => {
-                let w = p.status.includes('Upload') ? 'var(--primary)' : '#f59e0b'; // Biru kalau upload, kuning kalau antre
+                let w = p.status.includes('Upload') ? 'var(--primary)' : '#f59e0b'; 
                 let btn = p.status.includes('Upload') ? 
                     `<button class="btn-stop" disabled style="opacity:0.3; cursor:not-allowed;">⏳ UPLOAD</button>` : 
                     `<button class="btn-stop" style="background:#f59e0b;" onclick="batalAntreanLokal('${p.id}')">❌ BATAL</button>`;
@@ -449,7 +430,6 @@
                 else { tbLive.innerHTML += row; liveCount++; }
             });
 
-            // --- 2. RENDER TUGAS SERVER (YANG SUDAH SAMPAI DI MESIN PYTHON) ---
             lastServerData.active.forEach(t => { 
                 let btnStop = `<button class="btn-stop" onclick="stopTask(${t.id})">⏹️ STOP</button>`; 
                 let row = `<tr><td>#${t.id}</td><td style="color:var(--text-main); font-weight:bold;">${t.title}</td><td>${t.time}</td><td style="color:var(--primary); font-weight:bold;">${t.status}</td><td>${btnStop}</td></tr>`; 
@@ -495,13 +475,173 @@
 
         function copyTVUrl() { document.getElementById('tvUrl').select(); document.execCommand('copy'); alert('Link disalin!'); }
 
-        function injectVisualizer(cId, mode) { document.getElementById(cId).innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;"><span style="color:var(--primary); font-weight:bold;">🎨 VISUALIZER PRO SETTINGS</span><div><button type="button" class="btn-small" onclick="savePreset('${mode}')">💾 SAVE PRESET</button><button type="button" class="btn-small" onclick="loadPreset('${mode}')">📂 LOAD PRESET</button></div></div><div class="grid-3"><div class="slider-group"><label>Base Color</label><input type="color" id="${mode}_color_bot" name="color_bot" value="#38bdf8"></div><div class="slider-group"><label>Peak Color</label><input type="color" id="${mode}_color_top" name="color_top" value="#f472b6"></div><div class="slider-group"><label>Part Color</label><input type="color" id="${mode}_color_part" name="color_part" value="#ffffff"></div></div><div class="grid-3"><div class="slider-group"><label>X Pos <span class="val-badge" id="v_${mode}_px">50%</span></label><input type="range" id="${mode}_pos_x" name="pos_x" min="0" max="100" value="50" oninput="uVal('v_${mode}_px',this.value,'%')"></div><div class="slider-group"><label>Y Pos <span class="val-badge" id="v_${mode}_py">85%</span></label><input type="range" id="${mode}_pos_y" name="pos_y" min="0" max="100" value="85" oninput="uVal('v_${mode}_py',this.value,'%')"></div><div class="slider-group"><label>Width <span class="val-badge" id="v_${mode}_wp">60%</span></label><input type="range" id="${mode}_width_pct" name="width_pct" min="10" max="100" value="60" oninput="uVal('v_${mode}_wp',this.value,'%')"></div><div class="slider-group"><label>Limit <span class="val-badge" id="v_${mode}_mh">40%</span></label><input type="range" id="${mode}_max_height" name="max_height" min="10" max="100" value="40" oninput="uVal('v_${mode}_mh',this.value,'%')"></div><div class="slider-group"><label>Idle <span class="val-badge" id="v_${mode}_ih">5px</span></label><input type="range" id="${mode}_idle_height" name="idle_height" min="0" max="50" value="5" oninput="uVal('v_${mode}_ih',this.value,'px')"></div><div class="slider-group"><label>Density <span class="val-badge" id="v_${mode}_bc">64</span></label><input type="range" id="${mode}_bar_count" name="bar_count" min="10" max="200" value="64" oninput="uVal('v_${mode}_bc',this.value,'')"></div><div class="slider-group"><label>React <span class="val-badge" id="v_${mode}_r">0.66x</span></label><input type="range" id="${mode}_reactivity" name="reactivity" min="0.1" max="4.0" step="0.01" value="0.66" oninput="uVal('v_${mode}_r',this.value,'x')"></div><div class="slider-group"><label>Gravity <span class="val-badge" id="v_${mode}_g">0.08</span></label><input type="range" id="${mode}_gravity" name="gravity" min="0.01" max="0.50" step="0.01" value="0.08" oninput="uVal('v_${mode}_g',this.value,'')"></div><div class="slider-group"><label>Gap <span class="val-badge" id="v_${mode}_sp">3px</span></label><input type="range" id="${mode}_spacing" name="spacing" min="0" max="20" value="3" oninput="uVal('v_${mode}_sp',this.value,'px')"></div><div class="slider-group"><label>Part Amount <span class="val-badge" id="v_${mode}_pa">3</span></label><input type="range" id="${mode}_part_amount" name="part_amount" min="0" max="300" value="3" oninput="uVal('v_${mode}_pa',this.value,'')"></div><div class="slider-group"><label>Part Speed <span class="val-badge" id="v_${mode}_ps">1.0x</span></label><input type="range" id="${mode}_part_speed" name="part_speed" min="0.1" max="5.0" step="0.1" value="1.0" oninput="uVal('v_${mode}_ps',this.value,'x')"></div></div>`; }
+        // =========================================================================
+        // 💾 FITUR LENGKAP: LOCAL STORAGE + FILE JSON (IMPORT/EXPORT)
+        // =========================================================================
+        function injectVisualizer(cId, mode) { 
+            document.getElementById(cId).innerHTML = `
+            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px; gap:10px;">
+                <span style="color:var(--primary); font-weight:bold;">🎨 VISUALIZER PRO SETTINGS</span>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <select id="${mode}_preset_select" style="background:var(--bg-input); color:var(--text-main); border:1px solid var(--border); border-radius:4px; padding:6px 10px; font-size:11px; outline:none; cursor:pointer;" onchange="applyPreset('${mode}', this.value)">
+                        <option value="">-- Preset Tersimpan --</option>
+                    </select>
+                    <button type="button" class="btn-small" style="background:var(--primary); color:#000; border:none; font-weight:bold;" onclick="saveToLocal('${mode}')" title="Simpan ke Browser">💾 SIMPAN</button>
+                    <button type="button" class="btn-small" style="color:#ff3333; border-color:#ff3333;" onclick="deleteLocalPreset('${mode}')" title="Hapus Preset Terpilih">❌</button>
+                    
+                    <span style="color:var(--border); margin:0 5px;">|</span>
+                    
+                    <button type="button" class="btn-small" onclick="loadPresetFile('${mode}')" title="Upload file .json lama Anda">📂 IMPORT JSON</button>
+                    <button type="button" class="btn-small" onclick="savePresetFile('${mode}')" title="Download untuk dipakai di VPS lain">⬇️ EXPORT JSON</button>
+                </div>
+            </div>
+            <div class="grid-3">
+                <div class="slider-group"><label>Base Color</label><input type="color" id="${mode}_color_bot" name="color_bot" value="#38bdf8"></div>
+                <div class="slider-group"><label>Peak Color</label><input type="color" id="${mode}_color_top" name="color_top" value="#f472b6"></div>
+                <div class="slider-group"><label>Part Color</label><input type="color" id="${mode}_color_part" name="color_part" value="#ffffff"></div>
+            </div>
+            <div class="grid-3">
+                <div class="slider-group"><label>X Pos <span class="val-badge" id="v_${mode}_px">50%</span></label><input type="range" id="${mode}_pos_x" name="pos_x" min="0" max="100" value="50" oninput="uVal('v_${mode}_px',this.value,'%')"></div>
+                <div class="slider-group"><label>Y Pos <span class="val-badge" id="v_${mode}_py">85%</span></label><input type="range" id="${mode}_pos_y" name="pos_y" min="0" max="100" value="85" oninput="uVal('v_${mode}_py',this.value,'%')"></div>
+                <div class="slider-group"><label>Width <span class="val-badge" id="v_${mode}_wp">60%</span></label><input type="range" id="${mode}_width_pct" name="width_pct" min="10" max="100" value="60" oninput="uVal('v_${mode}_wp',this.value,'%')"></div>
+                <div class="slider-group"><label>Limit <span class="val-badge" id="v_${mode}_mh">40%</span></label><input type="range" id="${mode}_max_height" name="max_height" min="10" max="100" value="40" oninput="uVal('v_${mode}_mh',this.value,'%')"></div>
+                <div class="slider-group"><label>Idle <span class="val-badge" id="v_${mode}_ih">5px</span></label><input type="range" id="${mode}_idle_height" name="idle_height" min="0" max="50" value="5" oninput="uVal('v_${mode}_ih',this.value,'px')"></div>
+                <div class="slider-group"><label>Density <span class="val-badge" id="v_${mode}_bc">64</span></label><input type="range" id="${mode}_bar_count" name="bar_count" min="10" max="200" value="64" oninput="uVal('v_${mode}_bc',this.value,'')"></div>
+                <div class="slider-group"><label>React <span class="val-badge" id="v_${mode}_r">0.66x</span></label><input type="range" id="${mode}_reactivity" name="reactivity" min="0.1" max="4.0" step="0.01" value="0.66" oninput="uVal('v_${mode}_r',this.value,'x')"></div>
+                <div class="slider-group"><label>Gravity <span class="val-badge" id="v_${mode}_g">0.08</span></label><input type="range" id="${mode}_gravity" name="gravity" min="0.01" max="0.50" step="0.01" value="0.08" oninput="uVal('v_${mode}_g',this.value,'')"></div>
+                <div class="slider-group"><label>Gap <span class="val-badge" id="v_${mode}_sp">3px</span></label><input type="range" id="${mode}_spacing" name="spacing" min="0" max="20" value="3" oninput="uVal('v_${mode}_sp',this.value,'px')"></div>
+                <div class="slider-group"><label>Part Amount <span class="val-badge" id="v_${mode}_pa">3</span></label><input type="range" id="${mode}_part_amount" name="part_amount" min="0" max="300" value="3" oninput="uVal('v_${mode}_pa',this.value,'')"></div>
+                <div class="slider-group"><label>Part Speed <span class="val-badge" id="v_${mode}_ps">1.0x</span></label><input type="range" id="${mode}_part_speed" name="part_speed" min="0.1" max="5.0" step="0.1" value="1.0" oninput="uVal('v_${mode}_ps',this.value,'x')"></div>
+            </div>`; 
+        }
+
+        function hexToRgb(h) { let b = parseInt(h.replace('#', ''), 16); return [(b >> 16) & 255, (b >> 8) & 255, b & 255]; } 
+        function rgbToHex(r, g, b) { return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase(); }
+
+        // Fungsi dasar penarik data untuk dipakai Local & JSON
+        function getPresetObject(mode) {
+            return {
+                toggles: { enable: true, spectrum: true, particles: document.getElementById(`${mode}_part_amount`).value > 0, flux_mode: false },
+                colors: {
+                    bot: hexToRgb(document.getElementById(`${mode}_color_bot`).value),
+                    top: hexToRgb(document.getElementById(`${mode}_color_top`).value),
+                    part: hexToRgb(document.getElementById(`${mode}_color_part`).value)
+                },
+                sliders: {
+                    pos_x: document.getElementById(`${mode}_pos_x`).value / 100,
+                    pos_y: document.getElementById(`${mode}_pos_y`).value / 100,
+                    spec_width: document.getElementById(`${mode}_width_pct`).value / 100,
+                    height_limit: document.getElementById(`${mode}_max_height`).value / 100,
+                    min_height: parseFloat(document.getElementById(`${mode}_idle_height`).value),
+                    reactivity: parseFloat(document.getElementById(`${mode}_reactivity`).value),
+                    fall_speed: parseFloat(document.getElementById(`${mode}_gravity`).value),
+                    bar_count: parseFloat(document.getElementById(`${mode}_bar_count`).value),
+                    bar_gap: parseFloat(document.getElementById(`${mode}_spacing`).value),
+                    part_density: parseFloat(document.getElementById(`${mode}_part_amount`).value),
+                    part_speed: parseFloat(document.getElementById(`${mode}_part_speed`).value),
+                    flux_speed: 0.007, flux_decay: 0.69
+                }
+            };
+        }
+
+        // --- FITUR LOCAL STORAGE (Browser) ---
+        function saveToLocal(mode) {
+            let name = prompt("Beri nama Preset ini (Misal: Lofi Chill):");
+            if(!name) return;
+            let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
+            presets[name] = getPresetObject(mode);
+            localStorage.setItem('keibot_presets', JSON.stringify(presets));
+            refreshPresetDropdowns();
+            alert(`Preset '${name}' berhasil disimpan ke browser!`);
+            document.getElementById(`${mode}_preset_select`).value = name;
+        }
+
+        function deleteLocalPreset(mode) {
+            let sel = document.getElementById(`${mode}_preset_select`);
+            let name = sel.value;
+            if(!name) return alert("Pilih preset dari dropdown terlebih dahulu!");
+            if(confirm(`Yakin ingin menghapus preset '${name}' permanen dari browser ini?`)) {
+                let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
+                delete presets[name];
+                localStorage.setItem('keibot_presets', JSON.stringify(presets));
+                refreshPresetDropdowns();
+            }
+        }
+
+        function refreshPresetDropdowns() {
+            let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
+            let options = '<option value="">-- Preset Tersimpan --</option>';
+            for(let key in presets) { options += `<option value="${key}">${key}</option>`; }
+            
+            let vSel = document.getElementById('vod_preset_select');
+            let lSel = document.getElementById('live_preset_select');
+            
+            if(vSel) { let val = vSel.value; vSel.innerHTML = options; if(presets[val]) vSel.value = val; }
+            if(lSel) { let val = lSel.value; lSel.innerHTML = options; if(presets[val]) lSel.value = val; }
+        }
+
+        function applyPreset(mode, name) {
+            if(!name) return;
+            let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
+            let p = presets[name];
+            if(p) eksekusiPresetKeLayar(mode, p);
+        }
+
+        // --- FITUR IMPORT/EXPORT JSON MANUAL ---
+        function savePresetFile(mode) {
+            const p = getPresetObject(mode);
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(p, null, 4));
+            const dl = document.createElement('a'); 
+            dl.setAttribute("href", dataStr); 
+            dl.setAttribute("download", `KeiBot_${mode.toUpperCase()}_Preset.json`); 
+            dl.click();
+        }
+
+        function loadPresetFile(mode) {
+            const input = document.createElement('input'); 
+            input.type = 'file'; 
+            input.accept = '.json';
+            input.onchange = e => {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    try {
+                        const p = JSON.parse(ev.target.result);
+                        eksekusiPresetKeLayar(mode, p);
+                        alert("File JSON berhasil diterapkan!");
+                        document.getElementById(`${mode}_preset_select`).value = ""; // Reset dropdown
+                    } catch(err) { alert("File JSON tidak valid atau rusak!"); }
+                };
+                reader.readAsText(e.target.files[0]);
+            };
+            input.click();
+        }
+
+        // Fungsi Universal agar Form Langsung Bergerak (Dipakai oleh LocalStorage & JSON)
+        function eksekusiPresetKeLayar(mode, p) {
+            document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]);
+            document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]);
+            document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]);
+            
+            document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100;
+            document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100;
+            document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100;
+            document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100;
+            document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height;
+            document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity;
+            document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed;
+            document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count;
+            document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap;
+            document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density;
+            document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed;
+            
+            // Panggil event 'input' agar persentase di text ikut berubah
+            document.querySelectorAll(`#${mode} input[type=range]`).forEach(el => el.dispatchEvent(new Event('input')));
+        }
+
         function uVal(id,v,s) { document.getElementById(id).innerText = v+s; }
         function switchTab(tId) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active')); document.getElementById(tId).classList.add('active'); document.getElementById(`btn-${tId}`).classList.add('active'); if(tId==='dashboard') fetchAnalyticsData(); }
-        function hexToRgb(h) { let b = parseInt(h.replace('#', ''), 16); return [(b >> 16) & 255, (b >> 8) & 255, b & 255]; } function rgbToHex(r, g, b) { return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase(); }
-        function savePreset(mode) { const p = { toggles: { enable: true, spectrum: true, particles: document.getElementById(`${mode}_part_amount`).value > 0, flux_mode: false }, colors: { bot: hexToRgb(document.getElementById(`${mode}_color_bot`).value), top: hexToRgb(document.getElementById(`${mode}_color_top`).value), part: hexToRgb(document.getElementById(`${mode}_color_part`).value) }, sliders: { pos_x: document.getElementById(`${mode}_pos_x`).value / 100, pos_y: document.getElementById(`${mode}_pos_y`).value / 100, spec_width: document.getElementById(`${mode}_width_pct`).value / 100, height_limit: document.getElementById(`${mode}_max_height`).value / 100, min_height: parseFloat(document.getElementById(`${mode}_idle_height`).value), reactivity: parseFloat(document.getElementById(`${mode}_reactivity`).value), fall_speed: parseFloat(document.getElementById(`${mode}_gravity`).value), bar_count: parseFloat(document.getElementById(`${mode}_bar_count`).value), bar_gap: parseFloat(document.getElementById(`${mode}_spacing`).value), part_density: parseFloat(document.getElementById(`${mode}_part_amount`).value), part_speed: parseFloat(document.getElementById(`${mode}_part_speed`).value), flux_speed: 0.007, flux_decay: 0.69 } }; const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(p, null, 4)); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `KeiBot_${mode.toUpperCase()}.json`); dl.click(); }
-        function loadPreset(mode) { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = e => { const reader = new FileReader(); reader.onload = ev => { const p = JSON.parse(ev.target.result); document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]); document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]); document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]); document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100; document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100; document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100; document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100; document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height; document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity; document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed; document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count; document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap; document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density; document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed; document.querySelectorAll(`#${mode} input[type=range]`).forEach(el => el.dispatchEvent(new Event('input'))); }; reader.readAsText(e.target.files[0]); }; input.click(); }
     </script>
+    
     <div id="sys-monitor" style="position: fixed; bottom: 20px; right: 20px; background: rgba(30,30,47,0.8); border: 1px solid #444; padding: 15px; border-radius: 10px; color: white; font-family: Arial; font-size: 13px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.5); backdrop-filter: blur(5px);">
         <div style="margin-bottom: 8px; border-bottom: 1px solid #555; padding-bottom: 5px;"><b style="color:#00ffcc;">💻 SERVER LOAD</b></div>
         <div>CPU: <span id="sys-cpu" style="font-weight:bold; color:#ff0055;">0%</span></div>
