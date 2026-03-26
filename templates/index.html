@@ -163,14 +163,12 @@
         </div>
 
         <div id="settings" class="panel">
-            
             <div class="stat-box" style="margin-top:0; margin-bottom: 30px; border-left: 4px solid var(--primary);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h3 style="margin:0; color:var(--text-main);">⚙️ Konfigurasi Google API (OAuth 2.0)</h3>
                     <span id="api_status_badge" style="background:#444; padding:5px 10px; border-radius:4px; font-size:12px; font-weight:bold;">Mengecek...</span>
                 </div>
-                <p style="font-size:12px; color:var(--text-muted); margin-top:0;">Agar KeiBot bisa terhubung dengan channel Anda, Anda wajib mengunggah file <b>client_secret.json</b> dari Google Cloud Console milik Anda sendiri.</p>
-                
+                <p style="font-size:12px; color:var(--text-muted); margin-top:0;">Agar KeiBot bisa terhubung dengan channel Anda, Anda wajib mengunggah file <b>client_secret.json</b> (Tipe: TVs and Limited Input devices).</p>
                 <form id="apiUploadForm" onsubmit="uploadSecret(event)" style="display:flex; gap:10px; align-items:center; margin-top:15px;">
                     <input type="file" name="secret_file" accept=".json" required style="width:70%; margin:0; padding:10px;">
                     <button type="submit" class="btn-gold" style="width:30%; margin:0; padding:12px;">UPLOAD API KEY</button>
@@ -190,9 +188,8 @@
                 </div>
             </div>
 
-            <div class="settings-grid" id="settingsGrid">
-                </div>
-
+            <div class="settings-grid" id="settingsGrid"></div>
+            
             <div style="margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--border); text-align: center;">
                 <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px; font-weight:bold;">Butuh Bantuan atau Ingin Mendukung Pengembangan KeiBot?</p>
                 <a href="https://sociabuzz.com/keibot/support" target="_blank" style="display: inline-block; background-color: var(--secondary); color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; transition: transform 0.2s, background 0.2s;">
@@ -254,42 +251,26 @@
 
     <script>
         let cachedChannels = []; let analyticsData = []; let myChartInstance = null;
+        let browserQueue = []; let isUploading = false; 
 
-        // =========================================================================
-        // 🛠️ INTI MESIN ANTREAN: MENIRU SOFTWARE DESKTOP 100%
-        // =========================================================================
-        let browserQueue = []; 
-        let isUploading = false; 
-
+        // ==========================================
+        // MANAJEMEN ANTRIAN LOKAL BROWSER
+        // ==========================================
         function submitForm(e, api) { 
             e.preventDefault(); 
             let form = e.target;
-            
             let formData = new FormData(form);
             let isVod = api.includes('upload_vod');
             let idAntrean = "Q-" + Math.floor(Math.random() * 9999);
             
             let judul = formData.get('title') || 'Video Tanpa Judul';
-            let jadwal = '';
-            if(isVod) {
-                jadwal = formData.get('schedule') ? formData.get('schedule').replace('T', ' ') : '🚀 Rilis Instan';
-            } else {
-                let start = formData.get('schedule_start') ? formData.get('schedule_start').replace('T', ' ') : '';
-                let end = formData.get('schedule_end') ? formData.get('schedule_end').replace('T', ' ') : '';
-                jadwal = `${start} s/d ${end}`;
-            }
+            let jadwal = isVod ? (formData.get('schedule') ? formData.get('schedule').replace('T', ' ') : '🚀 Rilis Instan') : `${formData.get('schedule_start') ? formData.get('schedule_start').replace('T', ' ') : ''} s/d ${formData.get('schedule_end') ? formData.get('schedule_end').replace('T', ' ') : ''}`;
 
-            browserQueue.push({
-                id: idAntrean, api: api, dataBahan: formData, judul: judul, jadwal: jadwal, isVod: isVod,
-                status: '⏳ Mengantre untuk Dimasak', progress: 0
-            });
+            browserQueue.push({ id: idAntrean, api: api, dataBahan: formData, judul: judul, jadwal: jadwal, isVod: isVod, status: '⏳ Mengantre untuk Dimasak', progress: 0 });
 
             form.reset(); 
             form.querySelectorAll('input[type=range]').forEach(el => el.dispatchEvent(new Event('input'))); 
-            
-            switchTab('tasks'); 
-            renderTableTasks(); 
-            prosesKokiMasak(); 
+            switchTab('tasks'); renderTableTasks(); prosesKokiMasak(); 
         }
 
         function prosesKokiMasak() {
@@ -314,34 +295,23 @@
             };
 
             xhr.onload = function() {
-                browserQueue.splice(indexBahan, 1);
-                isUploading = false;
-                fetchDataFromServer(); 
-                prosesKokiMasak(); 
+                browserQueue.splice(indexBahan, 1); isUploading = false; fetchDataFromServer(); prosesKokiMasak(); 
             };
-
-            xhr.onerror = function() {
-                task.status = '❌ Gagal Upload! Coba lagi.';
-                isUploading = false;
-                renderTableTasks();
-            };
-
+            xhr.onerror = function() { task.status = '❌ Gagal Upload! Coba lagi.'; isUploading = false; renderTableTasks(); };
             xhr.send(task.dataBahan);
         }
 
         function batalAntreanLokal(id) {
             let idx = browserQueue.findIndex(t => t.id === id);
             if(idx !== -1) {
-                if(browserQueue[idx].status.includes('Upload')) {
-                    alert("Tidak bisa dibatalkan, file ini sedang dalam proses upload ke server!");
-                    return;
-                }
-                browserQueue.splice(idx, 1);
-                renderTableTasks();
+                if(browserQueue[idx].status.includes('Upload')) return alert("Tidak bisa dibatalkan, file ini sedang diupload ke server!");
+                browserQueue.splice(idx, 1); renderTableTasks();
             }
         }
-        // =========================================================================
 
+        // ==========================================
+        // GOOGLE API & CHANNELS
+        // ==========================================
         function checkApiStatus() {
             fetch('/api/check_secret').then(r=>r.json()).then(d=>{
                 const badge = document.getElementById('api_status_badge');
@@ -349,26 +319,19 @@
                 else { badge.innerText = "🔴 BELUM UPLOAD API"; badge.style.background = "#b90000"; badge.style.color = "white"; }
             });
         }
-
-        function uploadSecret(e) {
-            e.preventDefault();
-            fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) })
-            .then(r => r.json()).then(d => {
-                alert(d.message); checkApiStatus(); e.target.reset();
-            });
-        }
-
-        function toggleMode() { const body = document.body; const isDark = document.getElementById('modeSwitch').checked; if(isDark) { body.classList.remove('lightmode-vars'); body.classList.add('darkmode'); } else { body.classList.remove('darkmode'); body.classList.add('lightmode-vars'); } Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-muted'); Chart.defaults.borderColor = getComputedStyle(document.body).getPropertyValue('--border'); if(analyticsData.length > 0) renderAnalytics(); }
-        function fetchAnalyticsData() { fetch('/api/get_youtube_analytics').then(r=>r.json()).then(data => { analyticsData = data; const filter = document.getElementById('analytics_filter'); filter.innerHTML = '<option value="ALL">🌟 ALL CHANNELS OVERVIEW</option>'; data.forEach(d => { filter.innerHTML += `<option value="${d.yt_id}">${d.name}</option>`; }); renderAnalytics(); }); }
+        function uploadSecret(e) { e.preventDefault(); fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) }).then(r => r.json()).then(d => { alert(d.message); checkApiStatus(); e.target.reset(); }); }
         
-        function renderAnalytics() {
-            const filterVal = document.getElementById('analytics_filter').value; const monBox = document.getElementById('monetize_box'); let totalViews=0, totalSubs=0, totalWatch=0; let chartLabels = [], chartViews = [], chartSubs = [];
-            const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary').trim(); const secondaryColor = getComputedStyle(document.body).getPropertyValue('--secondary').trim();
-            if(filterVal === 'ALL') { monBox.style.display = 'none'; analyticsData.forEach(d => { totalViews += d.views; totalSubs += d.subs; totalWatch += d.watch_hours; chartLabels.push(d.name); chartViews.push(d.views); chartSubs.push(d.subs); }); renderChart("Perbandingan Views & Subs", chartLabels, chartViews, chartSubs, 'bar', primaryColor, secondaryColor); } else { monBox.style.display = 'block'; const d = analyticsData.find(x => x.yt_id === filterVal); if(d) { totalViews = d.views; totalSubs = d.subs; totalWatch = d.watch_hours; let pctSubs = Math.min((totalSubs / 1000) * 100, 100); let pctWatch = Math.min((totalWatch / 4000) * 100, 100); document.getElementById('prog_subs').style.width = pctSubs + '%'; document.getElementById('prog_watch').style.width = pctWatch + '%'; let statusBox = document.getElementById('mon_status'); if(totalSubs >= 1000 && totalWatch >= 4000) { statusBox.innerText = "🎉 MEMENUHI SYARAT MONETISASI"; statusBox.style.background = "#00ffaa"; statusBox.style.color = "black"; } else { statusBox.innerText = "❌ BELUM MEMENUHI SYARAT"; statusBox.style.background = "#b90000"; statusBox.style.color = "white"; } renderChart(`Statistik: ${d.name}`, ['Subscribers', 'Videos Uploaded'], [d.subs, d.videos], [], 'doughnut', secondaryColor, primaryColor); } }
-            document.getElementById('st_views').innerText = totalViews.toLocaleString(); document.getElementById('st_watch').innerText = totalWatch.toLocaleString(); document.getElementById('st_subs').innerText = totalSubs.toLocaleString();
+        function loadChannels() { 
+            fetch('/api/get_channels').then(r => r.json()).then(data => { 
+                cachedChannels = data; 
+                const dds_vod = document.getElementById('vod_channel_select'); const dds_live = document.getElementById('live_channel_select'); 
+                const vod_val = dds_vod.value; const live_val = dds_live.value; 
+                dds_vod.innerHTML = '<option value="">-- Pilih Channel --</option>'; dds_live.innerHTML = '<option value="">-- Pilih Channel --</option>'; 
+                data.forEach(ch => { dds_vod.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; dds_live.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; }); 
+                if(vod_val) dds_vod.value = vod_val; if(live_val) { dds_live.value = live_val; handleLiveChannelSelect(dds_live); } 
+                renderSettingsGrid(); 
+            }); 
         }
-
-        function renderChart(title, labels, data1, data2, type, c1, c2) { const ctx = document.getElementById('myChart').getContext('2d'); if(myChartInstance) myChartInstance.destroy(); let datasets = []; if(type === 'bar') datasets = [{ label: 'Total Views', data: data1, backgroundColor: c1 }, { label: 'Subscribers', data: data2, backgroundColor: c2 }]; else datasets = [{ data: data1, backgroundColor: [c1, c2], borderWidth:0 }]; Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-muted'); Chart.defaults.borderColor = getComputedStyle(document.body).getPropertyValue('--border'); myChartInstance = new Chart(ctx, { type: type, data: { labels: labels, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, color: getComputedStyle(document.body).getPropertyValue('--text-main') } }, scales: type === 'bar' ? { y: { beginAtZero: true } } : {} } }); }
 
         function toggleChannelSettings(yt_id) { const bodyDiv = document.getElementById('body_toggle_' + yt_id); const iconSpan = document.getElementById('icon_toggle_' + yt_id); if(bodyDiv.style.display === 'none') { bodyDiv.style.display = 'block'; iconSpan.innerText = '🔼'; } else { bodyDiv.style.display = 'none'; iconSpan.innerText = '🔽'; } }
         function renderSettingsGrid() {
@@ -377,107 +340,58 @@
                 sGrid.innerHTML += `<div class="channel-row"><div class="channel-header" onclick="toggleChannelSettings('${ch.yt_id}')"><div class="channel-info"><img src="${ch.thumbnail}"><div><h4 style="margin:0; font-size:16px;">${ch.name}</h4><span style="font-size:11px; color:var(--primary);">${ch.status}</span></div></div><div><span id="icon_toggle_${ch.yt_id}" style="font-size:20px; opacity:0.7;">🔽</span></div></div><div id="body_toggle_${ch.yt_id}" style="display:none; width:100%; border-top:1px solid var(--border); padding-top:20px; margin-top:15px;"><h4 style="margin:0 0 10px 0; font-size:12px; color:var(--text-muted); text-transform:uppercase;">🔑 Kelola Stream Key</h4><div id="keyList_${ch.yt_id}">${keysHTML}</div><div style="display:flex; gap:10px; align-items:center; background:var(--bg-input); padding:15px; border-radius:6px; border:1px dashed var(--text-muted); margin-top:10px;"><input type="text" id="new_key_name_${ch.yt_id}" placeholder="Nama Key (Misal: Lofi Pagi)" style="width:30%; margin:0;"><input type="password" id="new_key_val_${ch.yt_id}" placeholder="Kunci: xxxx-xxxx-xxxx-xxxx" style="width:50%; margin:0;"><button class="btn-gold" style="width:20%; margin:0; padding:12px;" onclick="addStreamKey('${ch.yt_id}')">➕ ADD KEY</button></div></div></div>`;
             });
         }
-
-        function addStreamKey(yt_id) { const nameInput = document.getElementById('new_key_name_' + yt_id).value.trim(); const keyInput = document.getElementById('new_key_val_' + yt_id).value.trim(); if(!nameInput || !keyInput) { alert("Nama dan Stream Key wajib diisi!"); return; } let ch = cachedChannels.find(c => c.yt_id === yt_id); if(!ch.stream_keys) ch.stream_keys = []; if(ch.stream_keys.some(sk => sk.name.toLowerCase() === nameInput.toLowerCase())) { alert("Nama Key ini sudah ada!"); return; } ch.stream_keys.push({name: nameInput, key: keyInput}); syncStreamKeys(yt_id, ch.stream_keys); }
+        function addStreamKey(yt_id) { const nameInput = document.getElementById('new_key_name_' + yt_id).value.trim(); const keyInput = document.getElementById('new_key_val_' + yt_id).value.trim(); if(!nameInput || !keyInput) return alert("Nama dan Stream Key wajib diisi!"); let ch = cachedChannels.find(c => c.yt_id === yt_id); if(!ch.stream_keys) ch.stream_keys = []; if(ch.stream_keys.some(sk => sk.name.toLowerCase() === nameInput.toLowerCase())) return alert("Nama Key ini sudah ada!"); ch.stream_keys.push({name: nameInput, key: keyInput}); syncStreamKeys(yt_id, ch.stream_keys); }
         function removeStreamKey(yt_id, index) { if(confirm("Hapus key ini?")) { let ch = cachedChannels.find(c => c.yt_id === yt_id); ch.stream_keys.splice(index, 1); syncStreamKeys(yt_id, ch.stream_keys); } }
-        function syncStreamKeys(yt_id, keysArray) { const fd = new FormData(); fd.append('yt_id', yt_id); fd.append('stream_keys', JSON.stringify(keysArray)); fetch('/api/save_stream_key', {method: 'POST', body: fd}).then(r=>r.json()).then(d=>{ fetch('/api/get_channels').then(r => r.json()).then(data => { cachedChannels = data; renderSettingsGrid(); document.getElementById('body_toggle_' + yt_id).style.display = 'block'; document.getElementById('icon_toggle_' + yt_id).innerText = '🔼'; }); }); }
+        function syncStreamKeys(yt_id, keysArray) { const fd = new FormData(); fd.append('yt_id', yt_id); fd.append('stream_keys', JSON.stringify(keysArray)); fetch('/api/save_stream_key', {method: 'POST', body: fd}).then(r=>r.json()).then(d=>{ loadChannels(); setTimeout(()=>{document.getElementById('body_toggle_' + yt_id).style.display = 'block'; document.getElementById('icon_toggle_' + yt_id).innerText = '🔼';}, 500); }); }
         function handleLiveChannelSelect(selectElem) { const c = cachedChannels.find(ch => ch.yt_id === selectElem.value); const keyDropdown = document.getElementById('live_stream_key'); keyDropdown.innerHTML = '<option value="">-- Pilih Stream Key --</option>'; if(c && c.stream_keys && c.stream_keys.length > 0) { c.stream_keys.forEach((sk) => { let safeKey = sk.key.substring(0, 4) + "••••••••"; keyDropdown.innerHTML += `<option value="${sk.key}">[ ${sk.name} ] - ${safeKey}</option>`; }); } else { keyDropdown.innerHTML = '<option value="">⚠️ Belum ada Stream Key di Settings</option>'; } }
+        function fetchPlaylists(yt_id, target_select_id) { const plSelect = document.getElementById(target_select_id); if(!plSelect) return; plSelect.innerHTML = '<option value="">⏳ Mengambil Playlist...</option>'; if(!yt_id) return plSelect.innerHTML = '<option value="">-- Pilih Channel --</option>'; fetch('/api/get_playlists?yt_id=' + yt_id).then(r => r.json()).then(data => { plSelect.innerHTML = '<option value="">-- Tidak Dimasukkan ke Playlist --</option>'; if(data.length === 0) plSelect.innerHTML += '<option value="" disabled>Belum ada playlist</option>'; else data.forEach(pl => plSelect.innerHTML += `<option value="${pl.id}">${pl.title}</option>`); }).catch(() => { plSelect.innerHTML = '<option value="">❌ Gagal mengambil data</option>'; }); }
 
-        function loadChannels() { fetch('/api/get_channels').then(r => r.json()).then(data => { cachedChannels = data; const dds_vod = document.getElementById('vod_channel_select'); const dds_live = document.getElementById('live_channel_select'); const vod_val = dds_vod.value; const live_val = dds_live.value; dds_vod.innerHTML = '<option value="">-- Pilih Channel --</option>'; dds_live.innerHTML = '<option value="">-- Pilih Channel --</option>'; data.forEach(ch => { dds_vod.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; dds_live.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; }); if(vod_val) dds_vod.value = vod_val; if(live_val) { dds_live.value = live_val; handleLiveChannelSelect(dds_live); } renderSettingsGrid(); }); }
-        function fetchPlaylists(yt_id, target_select_id) { const plSelect = document.getElementById(target_select_id); if(!plSelect) return; plSelect.innerHTML = '<option value="">⏳ Mengambil Playlist...</option>'; if(!yt_id) { plSelect.innerHTML = '<option value="">-- Pilih Channel --</option>'; return; } fetch('/api/get_playlists?yt_id=' + yt_id).then(r => r.json()).then(data => { plSelect.innerHTML = '<option value="">-- Tidak Dimasukkan ke Playlist --</option>'; if(data.length === 0) plSelect.innerHTML += '<option value="" disabled>Belum ada playlist</option>'; else data.forEach(pl => plSelect.innerHTML += `<option value="${pl.id}">${pl.title}</option>`); }).catch(() => { plSelect.innerHTML = '<option value="">❌ Gagal mengambil data</option>'; }); }
-        let currentBaseSeconds = 0; function formatTime(secs) { const h = Math.floor(secs / 3600); const m = Math.floor((secs % 3600) / 60); const s = Math.floor(secs % 60); return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; } function getAudioDuration(file) { return new Promise((resolve) => { const audio = new Audio(URL.createObjectURL(file)); audio.addEventListener('loadedmetadata', () => resolve(audio.duration)); audio.addEventListener('error', () => resolve(0)); }); } async function calcAudioDuration(inputElem, infoId) { const files = inputElem.files; if(files.length === 0) { currentBaseSeconds = 0; document.getElementById(infoId).innerText = "Durasi Asli: 00:00:00"; updateTotalDuration('vod'); return; } document.getElementById(infoId).innerText = "Menghitung..."; let total = 0; for(let i=0; i<files.length; i++) total += await getAudioDuration(files[i]); currentBaseSeconds = total; document.getElementById(infoId).innerText = "Durasi Asli: " + formatTime(total); updateTotalDuration('vod'); } function updateTotalDuration(mode) { const loops = parseInt(document.getElementById(mode + '_loop_count').value) || 1; document.getElementById(mode + '_total_info').innerText = "Estimasi VOD: " + formatTime(currentBaseSeconds * loops); }
-
-        function initApp() { 
-            injectVisualizer('visVod', 'vod'); 
-            injectVisualizer('visLive', 'live'); 
-            loadChannels(); 
-            fetchAnalyticsData(); 
-            checkApiStatus(); 
-            setInterval(fetchDataFromServer, 2000); 
-            refreshPresetDropdowns(); 
-        }
-
-        let lastServerData = {active: [], history: []};
-
-        function fetchDataFromServer() {
-            fetch('/api/get_schedule').then(r => r.json()).then(data => { 
-                lastServerData = data;
-                renderTableTasks(); 
-            }).catch(e => {});
-        }
-
-        function renderTableTasks() { 
-            const tbVOD = document.getElementById('tabelAktifVOD'); tbVOD.innerHTML = ''; 
-            const tbLive = document.getElementById('tabelAktifLive'); tbLive.innerHTML = ''; 
-            const tbH = document.getElementById('tabelHistory'); tbH.innerHTML = ''; 
-            let vodCount = 0; let liveCount = 0; 
-
-            browserQueue.forEach(p => {
-                let w = p.status.includes('Upload') ? 'var(--primary)' : '#f59e0b'; 
-                let btn = p.status.includes('Upload') ? 
-                    `<button class="btn-stop" disabled style="opacity:0.3; cursor:not-allowed;">⏳ UPLOAD</button>` : 
-                    `<button class="btn-stop" style="background:#f59e0b;" onclick="batalAntreanLokal('${p.id}')">❌ BATAL</button>`;
-
-                let row = `<tr>
-                    <td><span style="color:var(--text-muted); font-weight:bold;">${p.id}</span></td>
-                    <td style="color:var(--text-main); font-weight:bold;">${p.judul}</td>
-                    <td style="color:var(--text-muted);">${p.jadwal}</td>
-                    <td style="color:${w}; font-weight:bold;">${p.status}</td>
-                    <td>${btn}</td>
-                </tr>`;
-                
-                if(p.isVod) { tbVOD.innerHTML += row; vodCount++; }
-                else { tbLive.innerHTML += row; liveCount++; }
-            });
-
-            lastServerData.active.forEach(t => { 
-                let btnStop = `<button class="btn-stop" onclick="stopTask(${t.id})">⏹️ STOP</button>`; 
-                let row = `<tr><td>#${t.id}</td><td style="color:var(--text-main); font-weight:bold;">${t.title}</td><td>${t.time}</td><td style="color:var(--primary); font-weight:bold;">${t.status}</td><td>${btnStop}</td></tr>`; 
-                if(t.type.includes("VOD")) { tbVOD.innerHTML += row; vodCount++; } 
-                else { tbLive.innerHTML += row; liveCount++; } 
-            }); 
-
-            if(vodCount === 0) tbVOD.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada VOD di antrean.</td></tr>'; 
-            if(liveCount === 0) tbLive.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada Live Stream berjalan.</td></tr>'; 
-            
-            lastServerData.history.forEach(t => { 
-                let c = t.status.includes('❌') ? 'var(--secondary)' : 'var(--text-muted)'; 
-                tbH.innerHTML += `<tr><td>#${t.id}</td><td>${t.type}</td><td style="font-weight:bold;">${t.title}</td><td style="color:${c};">${t.status}</td></tr>`; 
-            }); 
-
-            document.getElementById('tm_channels').innerText = cachedChannels.length; 
-            document.getElementById('tm_active').innerText = lastServerData.active.length + browserQueue.length; 
-            document.getElementById('tm_history').innerText = lastServerData.history.length; 
-        }
-
-        function stopTask(id) { if(confirm("Yakin mematikan paksa tugas ini?")) { fetch('/api/stop_task/' + id, {method:'POST'}).then(r=>r.json()).then(d=>{ alert(d.message); fetchDataFromServer(); }); } }
-        
-        function generateTVLink() { 
-            fetch('/api/generate_tv_link').then(r => r.json()).then(d => { 
-                const box = document.getElementById('tvContainer');
-                const msg = document.getElementById('tvMsg');
-                const input = document.getElementById('tvUrl');
-                box.style.display='block'; 
-                if(d.error) {
-                    msg.innerText = d.error;
-                    msg.style.color = "var(--secondary)";
-                    input.style.display = "none";
-                    box.style.borderLeftColor = "var(--secondary)";
-                } else {
-                    msg.innerText = "Copy link di bawah dan paste di browser channel YouTube Anda.";
-                    msg.style.color = "var(--text-muted)";
-                    input.style.display = "block";
-                    input.value = d.auth_url; 
-                    box.style.borderLeftColor = "var(--primary)";
-                }
-            }); 
-        }
-
+        function generateTVLink() { fetch('/api/generate_tv_link').then(r => r.json()).then(d => { const box = document.getElementById('tvContainer'); const msg = document.getElementById('tvMsg'); const input = document.getElementById('tvUrl'); box.style.display='block'; if(d.error) { msg.innerText = d.error; msg.style.color = "var(--secondary)"; input.style.display = "none"; box.style.borderLeftColor = "var(--secondary)"; } else { msg.innerText = "Copy link di bawah dan paste di browser channel YouTube Anda."; msg.style.color = "var(--text-muted)"; input.style.display = "block"; input.value = d.auth_url; box.style.borderLeftColor = "var(--primary)"; } }); }
         function copyTVUrl() { document.getElementById('tvUrl').select(); document.execCommand('copy'); alert('Link disalin!'); }
 
-        // =========================================================================
-        // 💾 FITUR LENGKAP: LOCAL STORAGE + FILE JSON (IMPORT/EXPORT)
-        // =========================================================================
+        // ==========================================
+        // ANALYTICS & CHARTS
+        // ==========================================
+        function fetchAnalyticsData() { fetch('/api/get_youtube_analytics').then(r=>r.json()).then(data => { analyticsData = data; const filter = document.getElementById('analytics_filter'); filter.innerHTML = '<option value="ALL">🌟 ALL CHANNELS OVERVIEW</option>'; data.forEach(d => { filter.innerHTML += `<option value="${d.yt_id}">${d.name}</option>`; }); renderAnalytics(); }); }
+        function renderAnalytics() {
+            const filterVal = document.getElementById('analytics_filter').value; const monBox = document.getElementById('monetize_box'); let totalViews=0, totalSubs=0, totalWatch=0; let chartLabels = [], chartViews = [], chartSubs = [];
+            const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary').trim(); const secondaryColor = getComputedStyle(document.body).getPropertyValue('--secondary').trim();
+            if(filterVal === 'ALL') { monBox.style.display = 'none'; analyticsData.forEach(d => { totalViews += d.views; totalSubs += d.subs; totalWatch += d.watch_hours; chartLabels.push(d.name); chartViews.push(d.views); chartSubs.push(d.subs); }); renderChart("Perbandingan Views & Subs", chartLabels, chartViews, chartSubs, 'bar', primaryColor, secondaryColor); } 
+            else { monBox.style.display = 'block'; const d = analyticsData.find(x => x.yt_id === filterVal); if(d) { totalViews = d.views; totalSubs = d.subs; totalWatch = d.watch_hours; let pctSubs = Math.min((totalSubs / 1000) * 100, 100); let pctWatch = Math.min((totalWatch / 4000) * 100, 100); document.getElementById('prog_subs').style.width = pctSubs + '%'; document.getElementById('prog_watch').style.width = pctWatch + '%'; let statusBox = document.getElementById('mon_status'); if(totalSubs >= 1000 && totalWatch >= 4000) { statusBox.innerText = "🎉 MEMENUHI SYARAT MONETISASI"; statusBox.style.background = "#00ffaa"; statusBox.style.color = "black"; } else { statusBox.innerText = "❌ BELUM MEMENUHI SYARAT"; statusBox.style.background = "#b90000"; statusBox.style.color = "white"; } renderChart(`Statistik: ${d.name}`, ['Subscribers', 'Videos Uploaded'], [d.subs, d.videos], [], 'doughnut', secondaryColor, primaryColor); } }
+            document.getElementById('st_views').innerText = totalViews.toLocaleString(); document.getElementById('st_watch').innerText = totalWatch.toLocaleString(); document.getElementById('st_subs').innerText = totalSubs.toLocaleString();
+        }
+        function renderChart(title, labels, data1, data2, type, c1, c2) { const ctx = document.getElementById('myChart').getContext('2d'); if(myChartInstance) myChartInstance.destroy(); let datasets = []; if(type === 'bar') datasets = [{ label: 'Total Views', data: data1, backgroundColor: c1 }, { label: 'Subscribers', data: data2, backgroundColor: c2 }]; else datasets = [{ data: data1, backgroundColor: [c1, c2], borderWidth:0 }]; Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-muted'); Chart.defaults.borderColor = getComputedStyle(document.body).getPropertyValue('--border'); myChartInstance = new Chart(ctx, { type: type, data: { labels: labels, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, color: getComputedStyle(document.body).getPropertyValue('--text-main') } }, scales: type === 'bar' ? { y: { beginAtZero: true } } : {} } }); }
+
+        // ==========================================
+        // UI & TASKS MONITOR
+        // ==========================================
+        function toggleMode() { const body = document.body; const isDark = document.getElementById('modeSwitch').checked; if(isDark) { body.classList.remove('lightmode-vars'); body.classList.add('darkmode'); } else { body.classList.remove('darkmode'); body.classList.add('lightmode-vars'); } Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-muted'); Chart.defaults.borderColor = getComputedStyle(document.body).getPropertyValue('--border'); if(analyticsData.length > 0) renderAnalytics(); }
+        function switchTab(tId) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active')); document.getElementById(tId).classList.add('active'); document.getElementById(`btn-${tId}`).classList.add('active'); if(tId==='dashboard') fetchAnalyticsData(); }
+        let currentBaseSeconds = 0; function formatTime(secs) { const h = Math.floor(secs / 3600); const m = Math.floor((secs % 3600) / 60); const s = Math.floor(secs % 60); return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; } function getAudioDuration(file) { return new Promise((resolve) => { const audio = new Audio(URL.createObjectURL(file)); audio.addEventListener('loadedmetadata', () => resolve(audio.duration)); audio.addEventListener('error', () => resolve(0)); }); } async function calcAudioDuration(inputElem, infoId) { const files = inputElem.files; if(files.length === 0) { currentBaseSeconds = 0; document.getElementById(infoId).innerText = "Durasi Asli: 00:00:00"; updateTotalDuration('vod'); return; } document.getElementById(infoId).innerText = "Menghitung..."; let total = 0; for(let i=0; i<files.length; i++) total += await getAudioDuration(files[i]); currentBaseSeconds = total; document.getElementById(infoId).innerText = "Durasi Asli: " + formatTime(total); updateTotalDuration('vod'); } function updateTotalDuration(mode) { const loops = parseInt(document.getElementById(mode + '_loop_count').value) || 1; document.getElementById(mode + '_total_info').innerText = "Estimasi VOD: " + formatTime(currentBaseSeconds * loops); }
+
+        let lastServerData = {active: [], history: []};
+        function fetchDataFromServer() { fetch('/api/get_schedule').then(r => r.json()).then(data => { lastServerData = data; renderTableTasks(); }).catch(e => {}); }
+        function renderTableTasks() { 
+            const tbVOD = document.getElementById('tabelAktifVOD'); tbVOD.innerHTML = ''; const tbLive = document.getElementById('tabelAktifLive'); tbLive.innerHTML = ''; const tbH = document.getElementById('tabelHistory'); tbH.innerHTML = ''; let vodCount = 0; let liveCount = 0; 
+            browserQueue.forEach(p => {
+                let w = p.status.includes('Upload') ? 'var(--primary)' : '#f59e0b'; let btn = p.status.includes('Upload') ? `<button class="btn-stop" disabled style="opacity:0.3; cursor:not-allowed;">⏳ UPLOAD</button>` : `<button class="btn-stop" style="background:#f59e0b;" onclick="batalAntreanLokal('${p.id}')">❌ BATAL</button>`;
+                let row = `<tr><td><span style="color:var(--text-muted); font-weight:bold;">${p.id}</span></td><td style="color:var(--text-main); font-weight:bold;">${p.judul}</td><td style="color:var(--text-muted);">${p.jadwal}</td><td style="color:${w}; font-weight:bold;">${p.status}</td><td>${btn}</td></tr>`;
+                if(p.isVod) { tbVOD.innerHTML += row; vodCount++; } else { tbLive.innerHTML += row; liveCount++; }
+            });
+            lastServerData.active.forEach(t => { 
+                let btnStop = `<button class="btn-stop" onclick="stopTask(${t.id})">⏹️ STOP</button>`; let row = `<tr><td>#${t.id}</td><td style="color:var(--text-main); font-weight:bold;">${t.title}</td><td>${t.time}</td><td style="color:var(--primary); font-weight:bold;">${t.status}</td><td>${btnStop}</td></tr>`; 
+                if(t.type.includes("VOD")) { tbVOD.innerHTML += row; vodCount++; } else { tbLive.innerHTML += row; liveCount++; } 
+            }); 
+            if(vodCount === 0) tbVOD.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada VOD di antrean.</td></tr>'; 
+            if(liveCount === 0) tbLive.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:15px;">Tidak ada Live Stream berjalan.</td></tr>'; 
+            lastServerData.history.forEach(t => { let c = t.status.includes('❌') ? 'var(--secondary)' : 'var(--text-muted)'; tbH.innerHTML += `<tr><td>#${t.id}</td><td>${t.type}</td><td style="font-weight:bold;">${t.title}</td><td style="color:${c};">${t.status}</td></tr>`; }); 
+            document.getElementById('tm_channels').innerText = cachedChannels.length; document.getElementById('tm_active').innerText = lastServerData.active.length + browserQueue.length; document.getElementById('tm_history').innerText = lastServerData.history.length; 
+        }
+        function stopTask(id) { if(confirm("Yakin mematikan paksa tugas ini?")) { fetch('/api/stop_task/' + id, {method:'POST'}).then(r=>r.json()).then(d=>{ alert(d.message); fetchDataFromServer(); }); } }
+
+        // ==========================================
+        // VISUALIZER PRESETS & PREVIEW (FITUR LENGKAP)
+        // ==========================================
         function injectVisualizer(cId, mode) { 
             document.getElementById(cId).innerHTML = `
             <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px; gap:10px;">
@@ -488,11 +402,9 @@
                     </select>
                     <button type="button" class="btn-small" style="background:var(--primary); color:#000; border:none; font-weight:bold;" onclick="saveToLocal('${mode}')" title="Simpan ke Browser">💾 SIMPAN</button>
                     <button type="button" class="btn-small" style="color:#ff3333; border-color:#ff3333;" onclick="deleteLocalPreset('${mode}')" title="Hapus Preset Terpilih">❌</button>
-                    
                     <span style="color:var(--border); margin:0 5px;">|</span>
-                    
                     <button type="button" class="btn-small" onclick="loadPresetFile('${mode}')" title="Upload file .json lama Anda">📂 IMPORT JSON</button>
-                    <button type="button" class="btn-small" onclick="savePresetFile('${mode}')" title="Download untuk dipakai di VPS lain">⬇️ EXPORT JSON</button>
+                    <button type="button" class="btn-small" onclick="savePresetFile('${mode}')" title="Download untuk dipakai di VPS lain">⬇️ EXPORT</button>
                 </div>
             </div>
             <div class="grid-3">
@@ -512,134 +424,63 @@
                 <div class="slider-group"><label>Gap <span class="val-badge" id="v_${mode}_sp">3px</span></label><input type="range" id="${mode}_spacing" name="spacing" min="0" max="20" value="3" oninput="uVal('v_${mode}_sp',this.value,'px')"></div>
                 <div class="slider-group"><label>Part Amount <span class="val-badge" id="v_${mode}_pa">3</span></label><input type="range" id="${mode}_part_amount" name="part_amount" min="0" max="300" value="3" oninput="uVal('v_${mode}_pa',this.value,'')"></div>
                 <div class="slider-group"><label>Part Speed <span class="val-badge" id="v_${mode}_ps">1.0x</span></label><input type="range" id="${mode}_part_speed" name="part_speed" min="0.1" max="5.0" step="0.1" value="1.0" oninput="uVal('v_${mode}_ps',this.value,'x')"></div>
-            </div>`; 
+            </div>
+            <button type="button" id="btn_preview_${mode}" onclick="jalankanPreview('${mode}')" class="btn-gold" style="background:var(--border); color:var(--text-main); margin-top:15px; border:1px solid var(--text-muted);">👀 GENERATE PREVIEW VISUALIZER (5 DETIK)</button>
+            `; 
+        }
+
+        function jalankanPreview(mode) {
+            let formId = mode === 'vod' ? 'formUpload' : 'formLive'; let form = document.getElementById(formId); let formData = new FormData(form);
+            if(formData.getAll('audios').length === 0 || formData.getAll('audios')[0].size === 0) return alert("Pilih file Audio dulu Bos!");
+            if(formData.getAll('background').length === 0 || formData.getAll('background')[0].size === 0) return alert("Pilih file Background dulu Bos!");
+            let btn = document.getElementById('btn_preview_' + mode); let oldText = btn.innerHTML;
+            btn.innerHTML = "⏳ Sedang Merender Preview... (Tunggu 5-10 detik)"; btn.disabled = true;
+
+            fetch('/api/preview_visualizer', { method: 'POST', body: formData }).then(r => r.json()).then(d => {
+                btn.innerHTML = oldText; btn.disabled = false;
+                if(d.status === 'success') {
+                    let modal = document.getElementById('previewModal');
+                    if(!modal) {
+                        modal = document.createElement('div'); modal.id = 'previewModal';
+                        modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; display:flex; justify-content:center; align-items:center;";
+                        modal.innerHTML = `<div style="background:var(--bg-panel); padding:25px; border-radius:12px; border:2px solid var(--primary); text-align:center; max-width:800px; width:90%;"><h3 style="margin-top:0; color:var(--primary);">👀 Hasil Preview Visualizer</h3><video id="previewVideo" width="100%" controls autoplay style="border-radius:8px; border:1px solid var(--border);"><source src="" type="video/mp4"></video><br><button onclick="document.getElementById('previewModal').style.display='none'; document.getElementById('previewVideo').pause();" class="btn-stop" style="margin-top:20px; padding:12px 25px; font-size:14px;">❌ TUTUP PREVIEW</button></div>`;
+                        document.body.appendChild(modal);
+                    }
+                    modal.style.display = 'flex'; let vid = document.getElementById('previewVideo'); vid.src = d.preview_url; vid.play();
+                } else { alert("Gagal Preview: " + d.message); }
+            }).catch(e => { btn.innerHTML = oldText; btn.disabled = false; alert("Error koneksi ke server!"); });
         }
 
         function hexToRgb(h) { let b = parseInt(h.replace('#', ''), 16); return [(b >> 16) & 255, (b >> 8) & 255, b & 255]; } 
         function rgbToHex(r, g, b) { return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase(); }
-
-        // Fungsi dasar penarik data untuk dipakai Local & JSON
         function getPresetObject(mode) {
             return {
                 toggles: { enable: true, spectrum: true, particles: document.getElementById(`${mode}_part_amount`).value > 0, flux_mode: false },
-                colors: {
-                    bot: hexToRgb(document.getElementById(`${mode}_color_bot`).value),
-                    top: hexToRgb(document.getElementById(`${mode}_color_top`).value),
-                    part: hexToRgb(document.getElementById(`${mode}_color_part`).value)
-                },
-                sliders: {
-                    pos_x: document.getElementById(`${mode}_pos_x`).value / 100,
-                    pos_y: document.getElementById(`${mode}_pos_y`).value / 100,
-                    spec_width: document.getElementById(`${mode}_width_pct`).value / 100,
-                    height_limit: document.getElementById(`${mode}_max_height`).value / 100,
-                    min_height: parseFloat(document.getElementById(`${mode}_idle_height`).value),
-                    reactivity: parseFloat(document.getElementById(`${mode}_reactivity`).value),
-                    fall_speed: parseFloat(document.getElementById(`${mode}_gravity`).value),
-                    bar_count: parseFloat(document.getElementById(`${mode}_bar_count`).value),
-                    bar_gap: parseFloat(document.getElementById(`${mode}_spacing`).value),
-                    part_density: parseFloat(document.getElementById(`${mode}_part_amount`).value),
-                    part_speed: parseFloat(document.getElementById(`${mode}_part_speed`).value),
-                    flux_speed: 0.007, flux_decay: 0.69
-                }
+                colors: { bot: hexToRgb(document.getElementById(`${mode}_color_bot`).value), top: hexToRgb(document.getElementById(`${mode}_color_top`).value), part: hexToRgb(document.getElementById(`${mode}_color_part`).value) },
+                sliders: { pos_x: document.getElementById(`${mode}_pos_x`).value / 100, pos_y: document.getElementById(`${mode}_pos_y`).value / 100, spec_width: document.getElementById(`${mode}_width_pct`).value / 100, height_limit: document.getElementById(`${mode}_max_height`).value / 100, min_height: parseFloat(document.getElementById(`${mode}_idle_height`).value), reactivity: parseFloat(document.getElementById(`${mode}_reactivity`).value), fall_speed: parseFloat(document.getElementById(`${mode}_gravity`).value), bar_count: parseFloat(document.getElementById(`${mode}_bar_count`).value), bar_gap: parseFloat(document.getElementById(`${mode}_spacing`).value), part_density: parseFloat(document.getElementById(`${mode}_part_amount`).value), part_speed: parseFloat(document.getElementById(`${mode}_part_speed`).value), flux_speed: 0.007, flux_decay: 0.69 }
             };
         }
 
-        // --- FITUR LOCAL STORAGE (Browser) ---
-        function saveToLocal(mode) {
-            let name = prompt("Beri nama Preset ini (Misal: Lofi Chill):");
-            if(!name) return;
-            let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
-            presets[name] = getPresetObject(mode);
-            localStorage.setItem('keibot_presets', JSON.stringify(presets));
-            refreshPresetDropdowns();
-            alert(`Preset '${name}' berhasil disimpan ke browser!`);
-            document.getElementById(`${mode}_preset_select`).value = name;
-        }
-
-        function deleteLocalPreset(mode) {
-            let sel = document.getElementById(`${mode}_preset_select`);
-            let name = sel.value;
-            if(!name) return alert("Pilih preset dari dropdown terlebih dahulu!");
-            if(confirm(`Yakin ingin menghapus preset '${name}' permanen dari browser ini?`)) {
-                let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
-                delete presets[name];
-                localStorage.setItem('keibot_presets', JSON.stringify(presets));
-                refreshPresetDropdowns();
-            }
-        }
-
-        function refreshPresetDropdowns() {
-            let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
-            let options = '<option value="">-- Preset Tersimpan --</option>';
-            for(let key in presets) { options += `<option value="${key}">${key}</option>`; }
-            
-            let vSel = document.getElementById('vod_preset_select');
-            let lSel = document.getElementById('live_preset_select');
-            
-            if(vSel) { let val = vSel.value; vSel.innerHTML = options; if(presets[val]) vSel.value = val; }
-            if(lSel) { let val = lSel.value; lSel.innerHTML = options; if(presets[val]) lSel.value = val; }
-        }
-
-        function applyPreset(mode, name) {
-            if(!name) return;
-            let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}');
-            let p = presets[name];
-            if(p) eksekusiPresetKeLayar(mode, p);
-        }
-
-        // --- FITUR IMPORT/EXPORT JSON MANUAL ---
-        function savePresetFile(mode) {
-            const p = getPresetObject(mode);
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(p, null, 4));
-            const dl = document.createElement('a'); 
-            dl.setAttribute("href", dataStr); 
-            dl.setAttribute("download", `KeiBot_${mode.toUpperCase()}_Preset.json`); 
-            dl.click();
-        }
-
-        function loadPresetFile(mode) {
-            const input = document.createElement('input'); 
-            input.type = 'file'; 
-            input.accept = '.json';
-            input.onchange = e => {
-                const reader = new FileReader();
-                reader.onload = ev => {
-                    try {
-                        const p = JSON.parse(ev.target.result);
-                        eksekusiPresetKeLayar(mode, p);
-                        alert("File JSON berhasil diterapkan!");
-                        document.getElementById(`${mode}_preset_select`).value = ""; // Reset dropdown
-                    } catch(err) { alert("File JSON tidak valid atau rusak!"); }
-                };
-                reader.readAsText(e.target.files[0]);
-            };
-            input.click();
-        }
-
-        // Fungsi Universal agar Form Langsung Bergerak (Dipakai oleh LocalStorage & JSON)
+        function saveToLocal(mode) { let name = prompt("Beri nama Preset ini (Misal: Lofi Chill):"); if(!name) return; let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}'); presets[name] = getPresetObject(mode); localStorage.setItem('keibot_presets', JSON.stringify(presets)); refreshPresetDropdowns(); alert(`Preset '${name}' berhasil disimpan ke browser!`); document.getElementById(`${mode}_preset_select`).value = name; }
+        function deleteLocalPreset(mode) { let sel = document.getElementById(`${mode}_preset_select`); let name = sel.value; if(!name) return alert("Pilih preset dari dropdown terlebih dahulu!"); if(confirm(`Yakin ingin menghapus preset '${name}' permanen dari browser ini?`)) { let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}'); delete presets[name]; localStorage.setItem('keibot_presets', JSON.stringify(presets)); refreshPresetDropdowns(); } }
+        function refreshPresetDropdowns() { let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}'); let options = '<option value="">-- Preset Tersimpan --</option>'; for(let key in presets) { options += `<option value="${key}">${key}</option>`; } let vSel = document.getElementById('vod_preset_select'); let lSel = document.getElementById('live_preset_select'); if(vSel) { let val = vSel.value; vSel.innerHTML = options; if(presets[val]) vSel.value = val; } if(lSel) { let val = lSel.value; lSel.innerHTML = options; if(presets[val]) lSel.value = val; } }
+        function applyPreset(mode, name) { if(!name) return; let presets = JSON.parse(localStorage.getItem('keibot_presets') || '{}'); let p = presets[name]; if(p) eksekusiPresetKeLayar(mode, p); }
+        
+        function savePresetFile(mode) { const p = getPresetObject(mode); const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(p, null, 4)); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `KeiBot_${mode.toUpperCase()}_Preset.json`); dl.click(); }
+        function loadPresetFile(mode) { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = e => { const reader = new FileReader(); reader.onload = ev => { try { const p = JSON.parse(ev.target.result); eksekusiPresetKeLayar(mode, p); alert("File JSON berhasil diterapkan!"); document.getElementById(`${mode}_preset_select`).value = ""; } catch(err) { alert("File JSON tidak valid atau rusak!"); } }; reader.readAsText(e.target.files[0]); }; input.click(); }
+        
         function eksekusiPresetKeLayar(mode, p) {
-            document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]);
-            document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]);
-            document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]);
-            
-            document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100;
-            document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100;
-            document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100;
-            document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100;
-            document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height;
-            document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity;
-            document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed;
-            document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count;
-            document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap;
-            document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density;
-            document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed;
-            
-            // Panggil event 'input' agar persentase di text ikut berubah
+            document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]); document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]); document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]);
+            document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100; document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100; document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100; document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100; document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height; document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity; document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed; document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count; document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap; document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density; document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed;
             document.querySelectorAll(`#${mode} input[type=range]`).forEach(el => el.dispatchEvent(new Event('input')));
         }
-
         function uVal(id,v,s) { document.getElementById(id).innerText = v+s; }
-        function switchTab(tId) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active')); document.getElementById(tId).classList.add('active'); document.getElementById(`btn-${tId}`).classList.add('active'); if(tId==='dashboard') fetchAnalyticsData(); }
+
+        function initApp() { 
+            injectVisualizer('visVod', 'vod'); injectVisualizer('visLive', 'live'); 
+            loadChannels(); fetchAnalyticsData(); checkApiStatus(); 
+            setInterval(fetchDataFromServer, 2000); refreshPresetDropdowns(); 
+        }
     </script>
     
     <div id="sys-monitor" style="position: fixed; bottom: 20px; right: 20px; background: rgba(30,30,47,0.8); border: 1px solid #444; padding: 15px; border-radius: 10px; color: white; font-family: Arial; font-size: 13px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.5); backdrop-filter: blur(5px);">
@@ -648,19 +489,6 @@
         <div style="margin-top: 5px;">RAM: <span id="sys-ram-pct" style="font-weight:bold; color:#00cc66;">0%</span></div>
         <div id="sys-ram-text" style="color: #aaa; font-size: 11px; margin-top: 3px;">0GB / 0GB</div>
     </div>
-    <script>
-        // Update data otomatis setiap 3 detik
-        setInterval(() => {
-            fetch('/api/get_dashboard_stats')
-            .then(r => r.json())
-            .then(d => {
-                if(d.sys_cpu !== undefined) {
-                    document.getElementById('sys-cpu').innerText = d.sys_cpu + '%';
-                    document.getElementById('sys-ram-pct').innerText = d.sys_ram_pct + '%';
-                    document.getElementById('sys-ram-text').innerText = d.sys_ram_text;
-                }
-            }).catch(e => {});
-        }, 3000);
-    </script>
+    <script> setInterval(() => { fetch('/api/get_dashboard_stats').then(r => r.json()).then(d => { if(d.sys_cpu !== undefined) { document.getElementById('sys-cpu').innerText = d.sys_cpu + '%'; document.getElementById('sys-ram-pct').innerText = d.sys_ram_pct + '%'; document.getElementById('sys-ram-text').innerText = d.sys_ram_text; } }).catch(e => {}); }, 3000); </script>
 </body>
 </html>
