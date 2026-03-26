@@ -1,0 +1,5 @@
+channels_db.json
+client_secret.json
+uploads/
+static/
+__pycache__/
