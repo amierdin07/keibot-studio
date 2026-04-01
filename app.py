@@ -88,6 +88,25 @@ active_tasks = task_data.get("active", [])
 history_tasks = task_data.get("history", [])
 
 # ==========================================
+# 🚦 SISTEM PENJAGA GERBANG RAM (ANTI-CRASH)
+# ==========================================
+def wait_for_resources(task_id, max_ram_pct=85.0):
+    """Fungsi cerdas yang akan menahan tugas jika RAM VPS hampir penuh (Mencegah OOM Killer)"""
+    while True:
+        if stop_flags.get(task_id): return False # Jika user klik stop
+        stats = get_system_stats()
+        
+        if stats['ram_pct'] < max_ram_pct:
+            return True # RAM aman, persilakan FFMPEG jalan
+            
+        # RAM kepenuhan! Tahan eksekusi dan lapor ke layar
+        for d in active_tasks:
+            if d['id'] == task_id:
+                d['status'] = f"Menunggu RAM Turun ({stats['ram_pct']}%) ⏳"
+        save_tasks_db()
+        time.sleep(10) # Cek lagi setiap 10 detik
+
+# ==========================================
 # ⚙️ INIT FLASK & GOOGLE API
 # ==========================================
 from google_auth_oauthlib.flow import Flow
@@ -298,11 +317,13 @@ class VisualEngine:
         return frame
 
 def hex_to_rgb(h): return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+
 def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
     w, h = 1280, 720; fps = 30; total_f = int(duration * fps)
     vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part')))
     bg = BackgroundManager(bg_paths, w, h); audio = AudioBrain(); audio.load(audio_path)
-    cmd = [get_ffmpeg_path(), '-y', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-', '-i', audio_path, '-t', str(duration), '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p', output_path]
+    # PEMBATAS CPU FFMPEG DITAMBAHKAN DI SINI (-threads 2)
+    cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-', '-i', audio_path, '-t', str(duration), '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p', output_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for f in range(total_f):
         v, hit, bars = audio.get_data(f/fps, int(cfg.get('bar_count', 64)))
@@ -314,6 +335,11 @@ def background_worker():
         task = render_queue.get(); task_id = task['id']
         try:
             if stop_flags.get(task_id): raise Exception("Dibatalkan")
+            
+            # CEK RAM SEBELUM MULAI MERENDER
+            if not wait_for_resources(task_id, max_ram_pct=85.0):
+                raise Exception("Dibatalkan saat menunggu RAM")
+
             for d in active_tasks:
                 if d['id'] == task_id: d['status'] = "Menyiapkan Base Audio ⚙️"
             save_tasks_db()
@@ -322,7 +348,8 @@ def background_worker():
                 for ap in task['audio_paths']:
                     c_ap = os.path.abspath(ap).replace('\\', '/')
                     f.write(f"file '{c_ap}'\n")
-            subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # PEMBATAS CPU (-threads 2)
+            subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             audio = AudioBrain(); audio.load(base_audio); base_dur = audio.duration if audio.duration > 0 else 10
             
             if stop_flags.get(task_id): raise Exception("Dibatalkan")
@@ -343,7 +370,7 @@ def background_worker():
                     for _ in range(loop_count):
                         c_bv = os.path.abspath(base_video).replace('\\', '/')
                         f.write(f"file '{c_bv}'\n")
-                subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', loop_txt, '-c', 'copy', out_file], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', loop_txt, '-c', 'copy', out_file], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else: shutil.copy(base_video, out_file)
 
             meta = task['metadata']; channel_data = next((c for c in database_channel if c['yt_id'] == meta['channel_yt_id']), None)
@@ -394,6 +421,10 @@ threading.Thread(target=background_worker, daemon=True).start()
 
 def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, end_time_str, cfg, metadata):
     try:
+        # CEK RAM SEBELUM MULAI LIVE
+        if not wait_for_resources(task_id, max_ram_pct=85.0):
+            raise Exception("Dibatalkan saat menunggu RAM")
+
         for d in active_tasks:
             if d['id'] == task_id: d['status'] = "Menyiapkan Playlist Audio ⚙️"
         save_tasks_db()
@@ -402,7 +433,7 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
             for ap in audio_paths:
                 c_ap = os.path.abspath(ap).replace('\\', '/')
                 f.write(f"file '{c_ap}'\n")
-        subprocess.run([get_ffmpeg_path(), '-y', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', m_audio], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', m_audio], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         start_obj = datetime.strptime(start_time_str.replace('T', ' '), "%Y-%m-%d %H:%M")
         while datetime.now() < start_obj:
@@ -441,7 +472,9 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
             if d['id'] == task_id: d['status'] = "ON AIR (LIVE) 🔴"
         save_tasks_db()
         rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"; vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part'))); bg = BackgroundManager(bg_paths, 1280, 720); audio = AudioBrain(); audio.load(m_audio)
-        cmd = [get_ffmpeg_path(), '-y', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', '1280x720', '-pix_fmt', 'bgr24', '-r', '30', '-i', '-', '-stream_loop', '-1', '-i', m_audio, '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '2500k', '-maxrate', '2500k', '-bufsize', '5000k', '-pix_fmt', 'yuv420p', '-g', '60', '-c:a', 'aac', '-b:a', '128k', '-f', 'flv', rtmp_url]
+        
+        # PEMBATAS CPU FFMPEG DITAMBAHKAN DI SINI (-threads 2)
+        cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', '1280x720', '-pix_fmt', 'bgr24', '-r', '30', '-i', '-', '-stream_loop', '-1', '-i', m_audio, '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '2500k', '-maxrate', '2500k', '-bufsize', '5000k', '-pix_fmt', 'yuv420p', '-g', '60', '-c:a', 'aac', '-b:a', '128k', '-f', 'flv', rtmp_url]
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE); live_threads[task_id] = proc
         
         f_idx = 0; end_obj = datetime.strptime(end_time_str.replace('T', ' '), "%Y-%m-%d %H:%M")
@@ -581,5 +614,13 @@ def handle_schedule_live():
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
 
 if __name__ == '__main__':
-    # Opsional: Jika Anda ingin merestart task yang menggantung, kodenya bisa ditaruh di sini nanti.
+    # Eksekusi antrean yang tertinggal saat VPS restart
+    for t in active_tasks:
+        if t['status'] == "In Queue ⏳":
+            print(f"Melewati tugas {t['id']} karena restart. Silakan antre ulang.")
+            t['status'] = "Dibatalkan (Server Restart) ⚠️"
+            history_tasks.insert(0, t)
+    active_tasks = [t for t in active_tasks if "Dibatalkan" not in t['status']]
+    save_tasks_db()
+    
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
