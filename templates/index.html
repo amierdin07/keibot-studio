@@ -153,7 +153,11 @@
                     <tbody id="tabelAktifVOD"></tbody>
                 </table>
             </div>
-            <h2 style="color:var(--text-muted); font-size:16px; border-top:1px solid var(--border); padding-top:20px;">🗂️ History (Selesai / Gagal)</h2>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:20px; margin-top:40px;">
+                <h2 style="color:var(--text-muted); font-size:16px; margin:0;">🗂️ History (Selesai / Gagal)</h2>
+                <button class="btn-stop" style="background:#444; padding:5px 15px;" onclick="clearHistory()">🧹 CLEAR HISTORY</button>
+            </div>
             <div style="overflow-x: auto;">
                 <table style="opacity: 0.8; min-width: 800px;">
                     <thead><tr><th>ID</th><th>TIPE</th><th>JUDUL</th><th>STATUS AKHIR</th></tr></thead>
@@ -253,9 +257,6 @@
         let cachedChannels = []; let analyticsData = []; let myChartInstance = null;
         let browserQueue = []; let isUploading = false; 
 
-        // ==========================================
-        // MANAJEMEN ANTRIAN LOKAL BROWSER
-        // ==========================================
         function submitForm(e, api) { 
             e.preventDefault(); 
             let form = e.target;
@@ -309,9 +310,6 @@
             }
         }
 
-        // ==========================================
-        // GOOGLE API & CHANNELS
-        // ==========================================
         function checkApiStatus() {
             fetch('/api/check_secret').then(r=>r.json()).then(d=>{
                 const badge = document.getElementById('api_status_badge');
@@ -349,9 +347,6 @@
         function generateTVLink() { fetch('/api/generate_tv_link').then(r => r.json()).then(d => { const box = document.getElementById('tvContainer'); const msg = document.getElementById('tvMsg'); const input = document.getElementById('tvUrl'); box.style.display='block'; if(d.error) { msg.innerText = d.error; msg.style.color = "var(--secondary)"; input.style.display = "none"; box.style.borderLeftColor = "var(--secondary)"; } else { msg.innerText = "Copy link di bawah dan paste di browser channel YouTube Anda."; msg.style.color = "var(--text-muted)"; input.style.display = "block"; input.value = d.auth_url; box.style.borderLeftColor = "var(--primary)"; } }); }
         function copyTVUrl() { document.getElementById('tvUrl').select(); document.execCommand('copy'); alert('Link disalin!'); }
 
-        // ==========================================
-        // ANALYTICS & CHARTS
-        // ==========================================
         function fetchAnalyticsData() { fetch('/api/get_youtube_analytics').then(r=>r.json()).then(data => { analyticsData = data; const filter = document.getElementById('analytics_filter'); filter.innerHTML = '<option value="ALL">🌟 ALL CHANNELS OVERVIEW</option>'; data.forEach(d => { filter.innerHTML += `<option value="${d.yt_id}">${d.name}</option>`; }); renderAnalytics(); }); }
         function renderAnalytics() {
             const filterVal = document.getElementById('analytics_filter').value; const monBox = document.getElementById('monetize_box'); let totalViews=0, totalSubs=0, totalWatch=0; let chartLabels = [], chartViews = [], chartSubs = [];
@@ -362,9 +357,6 @@
         }
         function renderChart(title, labels, data1, data2, type, c1, c2) { const ctx = document.getElementById('myChart').getContext('2d'); if(myChartInstance) myChartInstance.destroy(); let datasets = []; if(type === 'bar') datasets = [{ label: 'Total Views', data: data1, backgroundColor: c1 }, { label: 'Subscribers', data: data2, backgroundColor: c2 }]; else datasets = [{ data: data1, backgroundColor: [c1, c2], borderWidth:0 }]; Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-muted'); Chart.defaults.borderColor = getComputedStyle(document.body).getPropertyValue('--border'); myChartInstance = new Chart(ctx, { type: type, data: { labels: labels, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, color: getComputedStyle(document.body).getPropertyValue('--text-main') } }, scales: type === 'bar' ? { y: { beginAtZero: true } } : {} } }); }
 
-        // ==========================================
-        // UI & TASKS MONITOR
-        // ==========================================
         function toggleMode() { const body = document.body; const isDark = document.getElementById('modeSwitch').checked; if(isDark) { body.classList.remove('lightmode-vars'); body.classList.add('darkmode'); } else { body.classList.remove('darkmode'); body.classList.add('lightmode-vars'); } Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-muted'); Chart.defaults.borderColor = getComputedStyle(document.body).getPropertyValue('--border'); if(analyticsData.length > 0) renderAnalytics(); }
         function switchTab(tId) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active')); document.getElementById(tId).classList.add('active'); document.getElementById(`btn-${tId}`).classList.add('active'); if(tId==='dashboard') fetchAnalyticsData(); }
         let currentBaseSeconds = 0; function formatTime(secs) { const h = Math.floor(secs / 3600); const m = Math.floor((secs % 3600) / 60); const s = Math.floor(secs % 60); return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; } function getAudioDuration(file) { return new Promise((resolve) => { const audio = new Audio(URL.createObjectURL(file)); audio.addEventListener('loadedmetadata', () => resolve(audio.duration)); audio.addEventListener('error', () => resolve(0)); }); } async function calcAudioDuration(inputElem, infoId) { const files = inputElem.files; if(files.length === 0) { currentBaseSeconds = 0; document.getElementById(infoId).innerText = "Durasi Asli: 00:00:00"; updateTotalDuration('vod'); return; } document.getElementById(infoId).innerText = "Menghitung..."; let total = 0; for(let i=0; i<files.length; i++) total += await getAudioDuration(files[i]); currentBaseSeconds = total; document.getElementById(infoId).innerText = "Durasi Asli: " + formatTime(total); updateTotalDuration('vod'); } function updateTotalDuration(mode) { const loops = parseInt(document.getElementById(mode + '_loop_count').value) || 1; document.getElementById(mode + '_total_info').innerText = "Estimasi VOD: " + formatTime(currentBaseSeconds * loops); }
@@ -389,9 +381,17 @@
         }
         function stopTask(id) { if(confirm("Yakin mematikan paksa tugas ini?")) { fetch('/api/stop_task/' + id, {method:'POST'}).then(r=>r.json()).then(d=>{ alert(d.message); fetchDataFromServer(); }); } }
 
-        // ==========================================
-        // VISUALIZER PRESETS & PREVIEW (FITUR LENGKAP)
-        // ==========================================
+        function clearHistory() {
+            if(confirm("Hapus semua riwayat tugas? (Tugas aktif tidak akan terhapus)")) {
+                fetch('/api/clear_history', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    alert(d.message);
+                    fetchDataFromServer();
+                });
+            }
+        }
+
         function injectVisualizer(cId, mode) { 
             document.getElementById(cId).innerHTML = `
             <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px; gap:10px;">
