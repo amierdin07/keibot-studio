@@ -9,216 +9,361 @@
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; font-family: 'Segoe UI', system-ui, sans-serif; }
 
+        /* WARNA PREMIUM MODERN DASHBOARD (Seperti Gambar ORDO) */
         :root { 
-            --bg-main: #eef2f6; --bg-panel: #ffffff; --bg-input: #f8fafc; 
-            --primary: #10b981; --secondary: #0ea5e9; --danger: #ef4444; 
-            --text-main: #1e293b; --text-muted: #64748b; --border: #e2e8f0; 
-            --shadow: 0 10px 25px rgba(0,0,0,0.03); --radius: 16px;
+            --bg-main: #eef2f6; 
+            --bg-panel: #ffffff; 
+            --bg-input: #f8fafc; 
+            --primary: #10b981; /* Emerald Green */
+            --secondary: #0ea5e9; /* Sky Blue */
+            --danger: #ef4444; /* Red */
+            --text-main: #1e293b; 
+            --text-muted: #64748b; 
+            --border: #e2e8f0; 
+            --shadow: 0 10px 25px rgba(0,0,0,0.03);
+            --shadow-hover: 0 15px 35px rgba(0,0,0,0.08);
+            --radius: 16px;
         }
 
         body { background-color: var(--bg-main); color: var(--text-main); margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 280px; min-width: 280px; background-color: var(--bg-panel); padding: 30px 25px; box-sizing: border-box; display: flex; flex-direction: column; border-right: 1px solid #f1f5f9; }
+        
+        /* SIDEBAR MODERN */
+        .sidebar { width: 280px; min-width: 280px; background-color: var(--bg-panel); padding: 30px 25px; box-sizing: border-box; display: flex; flex-direction: column; overflow-y: auto; box-shadow: 4px 0 24px rgba(0,0,0,0.02); z-index: 10; border-right: 1px solid #f1f5f9; }
         .logo-container { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; }
-        .logo-container img { height: 50px; width: 50px; border-radius: 12px; }
-        .logo-text { font-size: 22px; font-weight: 800; margin: 0; }
-        .logo-subtext { color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .logo-container img { height: 50px; width: 50px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
+        .logo-text { color: var(--text-main); font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+        .logo-subtext { color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
 
-        .nav-item { display: flex; align-items: center; width: 100%; height: 50px; padding: 0 15px; margin-bottom: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; border-radius: 12px; transition: 0.3s; background: transparent; color: var(--text-muted); }
-        .nav-item:hover { background-color: var(--bg-input); color: var(--primary); }
-        .nav-item.active { background-color: rgba(16, 185, 129, 0.1); color: var(--primary); }
-        .sidebar-category { color: var(--text-muted); font-size: 11px; font-weight: 700; margin: 25px 0 15px 10px; text-transform: uppercase; }
+        .nav-group { flex-grow: 1; }
+        .sidebar-category { color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 25px; margin-bottom: 15px; padding-left: 10px; text-transform: uppercase; }
+        .nav-item { display: flex; align-items: center; width: 100%; height: 50px; padding: 0 15px; margin-bottom: 8px; background-color: transparent; color: var(--text-muted); border: none; cursor: pointer; text-align: left; font-size: 14px; font-weight: 600; border-radius: 12px; transition: all 0.3s ease; }
+        .nav-item span.icon { margin-right: 15px; font-size: 18px; opacity: 0.7; transition: 0.3s; }
+        .nav-item:hover { background-color: var(--bg-input); color: var(--primary); transform: translateX(5px); }
+        .nav-item:hover span.icon { opacity: 1; }
+        .nav-item.active { background-color: rgba(16, 185, 129, 0.1); color: var(--primary); font-weight: 700; }
+        .nav-item.active span.icon { opacity: 1; }
 
-        .main-content { flex-grow: 1; padding: 40px 50px; overflow-y: auto; }
-        .panel { display: none; background-color: var(--bg-panel); border: 1px solid var(--border); padding: 40px; border-radius: var(--radius); box-shadow: var(--shadow); animation: fadeIn 0.4s ease; }
+        /* MAIN CONTENT & PANELS */
+        .main-content { flex-grow: 1; min-width: 0; padding: 40px 50px; overflow-y: auto; }
+        .panel { display: none; background-color: var(--bg-panel); border: 1px solid var(--border); padding: 40px; border-radius: var(--radius); animation: fadeIn 0.4s ease; box-shadow: var(--shadow); }
         .panel.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
         .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
-        .dash-card { background: var(--bg-panel); padding: 25px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); position: relative; }
+        @media (max-width: 1024px) { .grid-3 { grid-template-columns: repeat(2, 1fr); } }
+        
+        /* DASHBOARD CARDS (Style ORDO) */
+        .dash-card { background: var(--bg-panel); padding: 25px; border-radius: var(--radius); border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; box-shadow: var(--shadow); transition: 0.3s; position: relative; overflow: hidden; }
+        .dash-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-3px); }
         .dash-card::before { content: ""; position: absolute; top: 0; left: 0; width: 6px; height: 100%; background: var(--primary); border-radius: 6px 0 0 6px; }
         .dash-card.blue::before { background: var(--secondary); }
         .dash-card.gray::before { background: var(--text-muted); }
-        .dash-card h2 { margin: 0; font-size: 32px; font-weight: 800; }
-        .dash-card p { margin: 8px 0 0; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+        .dash-card h2 { margin: 0; font-size: 32px; color: var(--text-main); font-weight: 800; display: flex; align-items: center; gap: 10px; }
+        .dash-card p { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* INPUT & FORMS */
+        .vis-box { background-color: var(--bg-input); border: 1px solid var(--border); padding: 25px; border-radius: 12px; margin-bottom: 25px; }
+        .slider-group { background: var(--bg-panel); padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .slider-group label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; }
+        .val-badge { color: var(--primary); font-family: monospace; font-size: 12px; background: rgba(16,185,129,0.1); padding: 2px 6px; border-radius: 4px; }
+        
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 6px; background: var(--border); border-radius: 3px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; transition: 0.2s; }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        
+        input[type="text"], input[type="number"], input[type="password"], input[type="datetime-local"], select, textarea { width: 100%; padding: 14px 16px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-main); margin-top: 6px; box-sizing: border-box; border-radius: 10px; font-size: 14px; font-weight: 500; transition: 0.3s; outline: none; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+        input[type="file"] { padding: 10px; background: white; border: 1px dashed var(--text-muted); cursor: pointer; }
 
-        input, select, textarea { width: 100%; padding: 14px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-main); border-radius: 10px; font-size: 14px; box-sizing: border-box; outline: none; transition: 0.3s; }
-        input:focus { border-color: var(--primary); }
-        .btn-gold { background-color: var(--primary); color: white; border: none; padding: 16px; font-weight: 700; border-radius: 10px; cursor: pointer; width: 100%; margin-top: 20px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
-        .btn-small { background: white; border: 1px solid var(--border); padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; }
-        .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px 16px; font-weight: 700; border-radius: 6px; cursor: pointer; }
+        /* BUTTONS */
+        .btn-gold { background-color: var(--primary); color: #ffffff; border: none; padding: 16px; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; border-radius: 10px; cursor: pointer; width: 100%; margin-top: 20px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
+        .btn-gold:hover { background-color: #059669; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3); }
+        .btn-small { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 6px; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .btn-small:hover { background: var(--bg-main); border-color: var(--text-muted); }
+        .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px 16px; font-weight: 700; font-size: 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; }
+        .btn-danger:hover { background: var(--danger); color: white; }
 
-        .tag-chip { background: white; color: var(--text-muted); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; display:inline-block; margin: 4px; }
-        .tag-chip.active-vod { background: var(--primary); color: white; border-color: var(--primary); }
-        .tag-chip.active-live { background: var(--danger); color: white; border-color: var(--danger); }
+        /* MODULAR TAG CHIPS */
+        .tag-chip { background: var(--bg-panel); color: var(--text-muted); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.2s; display:inline-block; margin: 4px 4px 0 0; user-select: none; }
+        .tag-chip.active-vod { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(16,185,129,0.2); }
+        .tag-chip.active-live { background: var(--danger); color: white; border-color: var(--danger); box-shadow: 0 4px 10px rgba(239,68,68,0.2); }
 
-        table { width: 100%; border-collapse: separate; border-spacing: 0 8px; font-size: 13px; }
-        th { padding: 15px; text-align: left; color: var(--text-muted); text-transform: uppercase; font-size: 11px; border-bottom: 2px solid var(--border); }
-        td { padding: 16px; background: var(--bg-panel); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        /* TABLES */
+        table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-top: 10px; font-size: 13px; }
+        th { padding: 15px 20px; text-align: left; color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
+        td { padding: 16px 20px; background: var(--bg-panel); color: var(--text-main); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
         td:first-child { border-left: 1px solid var(--border); border-radius: 10px 0 0 10px; }
         td:last-child { border-right: 1px solid var(--border); border-radius: 0 10px 10px 0; }
+        tr:hover td { background: var(--bg-input); }
 
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        /* LIVE INDICATOR BLINK */
+        @keyframes blink { 0% { opacity: 1; box-shadow: 0 0 8px #10b981; } 50% { opacity: 0.4; box-shadow: 0 0 2px #10b981; } 100% { opacity: 1; box-shadow: 0 0 8px #10b981; } }
         .dot-excellent { display: inline-block; width: 10px; height: 10px; background: #10b981; border-radius: 50%; animation: blink 1.5s infinite; margin-right: 8px; }
         .dot-poor { display: inline-block; width: 10px; height: 10px; background: #f59e0b; border-radius: 50%; margin-right: 8px; }
-        .channel-row { background: var(--bg-panel); border: 1px solid var(--border); padding: 20px; border-radius: 12px; margin-bottom: 15px; }
+
+        /* CHANNEL LIST */
+        .channel-row { display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--border); padding: 20px; border-radius: 12px; transition: 0.3s; box-shadow: var(--shadow); }
+        .channel-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; width: 100%; }
+        .channel-info { display: flex; align-items: center; gap: 15px; }
+        .channel-info img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--primary); padding: 2px; }
+        .key-item { display: flex; justify-content: space-between; background: var(--bg-input); padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); align-items: center; }
     </style>
 </head>
 <body onload="initApp()">
 
     <div class="sidebar">
-        <div class="logo-container">
-            <img src="/static/logo.png" onerror="this.src='https://via.placeholder.com/80/10b981/ffffff?text=KB'">
-            <div><h1 class="logo-text">KeiBot</h1><span class="logo-subtext">Automation</span></div>
+        <div>
+            <div class="logo-container">
+                <img src="/static/logo.png" alt="Logo" onerror="this.src='https://via.placeholder.com/80/10b981/ffffff?text=KB'">
+                <div>
+                    <h1 class="logo-text">KeiBot</h1>
+                    <span class="logo-subtext">Manager Studio</span>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <div class="sidebar-category">Overview</div>
+                <button class="nav-item active" onclick="switchTab('dashboard')" id="btn-dashboard"><span class="icon">📊</span> Dashboard</button>
+                <button class="nav-item" onclick="switchTab('tasks')" id="btn-tasks"><span class="icon">⚡</span> Task Monitor</button>
+                
+                <div class="sidebar-category">Studio Engine</div>
+                <button class="nav-item" onclick="switchTab('upload')" id="btn-upload"><span class="icon">📺</span> VOD Studio</button>
+                <button class="nav-item" onclick="switchTab('live')" id="btn-live"><span class="icon">🔴</span> Live Station</button>
+                
+                <div class="sidebar-category">System</div>
+                <button class="nav-item" onclick="switchTab('settings')" id="btn-settings"><span class="icon">⚙️</span> Settings</button>
+            </div>
         </div>
-        <div class="sidebar-category">Overview</div>
-        <button class="nav-item active" onclick="switchTab('dashboard')" id="btn-dashboard">📊 Dashboard</button>
-        <button class="nav-item" onclick="switchTab('tasks')" id="btn-tasks">⚡ Task Monitor</button>
-        <div class="sidebar-category">Engine</div>
-        <button class="nav-item" onclick="switchTab('upload')" id="btn-upload">📺 VOD Studio</button>
-        <button class="nav-item" onclick="switchTab('live')" id="btn-live">🔴 Live Station</button>
-        <div class="sidebar-category">System</div>
-        <button class="nav-item" onclick="switchTab('settings')" id="btn-settings">⚙️ Settings</button>
     </div>
 
     <div class="main-content">
         <div id="dashboard" class="panel active">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
-                <h2>Analytics Dashboard</h2>
-                <select id="analytics_filter" style="width:250px; border-color:var(--primary);" onchange="renderAnalytics()">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px;">
+                <div>
+                    <h2 style="margin:0; font-size: 24px; font-weight: 800;">Analytics Dashboard</h2>
+                    <p style="margin:5px 0 0; color:var(--text-muted); font-size:13px;">Ringkasan performa seluruh channel Anda.</p>
+                </div>
+                <select id="analytics_filter" style="width:250px; border:1px solid var(--primary); background:rgba(16,185,129,0.05); color:var(--primary); font-weight:700;" onchange="renderAnalytics()">
                     <option value="ALL">🌟 ALL CHANNELS</option>
                 </select>
             </div>
             <div class="grid-3">
-                <div class="dash-card"><h2><span id="st_views">0</span></h2><p>Total Views</p></div>
-                <div class="dash-card blue"><h2><span id="st_watch">0</span></h2><p>Watch Time (Hours)</p></div>
-                <div class="dash-card gray"><h2><span id="st_subs">0</span></h2><p>Subscribers</p></div>
+                <div class="dash-card"><h2><span style="font-size:20px; color:var(--primary);">👁️</span> <span id="st_views">0</span></h2><p>Total Views</p></div>
+                <div class="dash-card blue"><h2><span style="font-size:20px; color:var(--secondary);">⏱️</span> <span id="st_watch">0</span></h2><p>Watch Time (Hours)</p></div>
+                <div class="dash-card gray"><h2><span style="font-size:20px; color:var(--text-muted);">👥</span> <span id="st_subs">0</span></h2><p>Subscribers</p></div>
             </div>
-            <div id="monetize_box" style="margin-top:20px; display:none; padding:20px; background:var(--bg-input); border-radius:12px;">
-                <h3 style="margin:0 0 15px; font-size:14px;">Target Monetisasi</h3>
-                <div class="grid-3" style="align-items:center;">
-                    <div id="mon_status" style="font-weight:700;">Menghitung...</div>
-                    <div><label style="font-size:10px;">SUBS</label><div style="height:8px; background:var(--border); border-radius:4px; overflow:hidden;"><div id="prog_subs" style="height:100%; background:var(--secondary); width:0%;"></div></div></div>
-                    <div><label style="font-size:10px;">WATCH</label><div style="height:8px; background:var(--border); border-radius:4px; overflow:hidden;"><div id="prog_watch" style="height:100%; background:var(--primary); width:0%;"></div></div></div>
+            <div id="monetize_box" style="background:var(--bg-panel); border:1px solid var(--border); padding:25px; border-radius:var(--radius); margin-top:20px; display:none; box-shadow:var(--shadow);">
+                <h3 style="margin-top:0; color:var(--text-main); font-size:16px;">Target Monetisasi</h3>
+                <div class="grid-3" style="align-items: center; margin-bottom:0;">
+                    <div><span id="mon_status" style="background:var(--bg-input); padding:10px 15px; border-radius:8px; font-size:13px; font-weight:700; color:var(--text-main); border:1px solid var(--border);">Menghitung...</span></div>
+                    <div style="width:100%;"><label style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Subs (1.000)</label><div style="width:100%; background:var(--border); height:8px; border-radius:4px; margin-top:8px; overflow:hidden;"><div id="prog_subs" style="height:100%; background:var(--secondary); width:0%; transition:1s;"></div></div></div>
+                    <div style="width:100%;"><label style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Watch (4.000)</label><div style="width:100%; background:var(--border); height:8px; border-radius:4px; margin-top:8px; overflow:hidden;"><div id="prog_watch" style="height:100%; background:var(--primary); width:0%; transition:1s;"></div></div></div>
                 </div>
             </div>
-            <div style="margin-top:20px;"><canvas id="myChart" style="max-height: 300px;"></canvas></div>
+            <div style="background:var(--bg-panel); border:1px solid var(--border); padding:25px; border-radius:var(--radius); margin-top:20px; box-shadow:var(--shadow);"><canvas id="myChart" style="max-height: 300px; width:100%;"></canvas></div>
         </div>
 
         <div id="tasks" class="panel">
-            <h2>Task Monitor</h2>
-            <div class="grid-3">
-                <div class="dash-card"><h2><span id="tm_channels">0</span></h2><p>Channels</p></div>
-                <div class="dash-card blue"><h2><span id="tm_active">0</span></h2><p>Active</p></div>
-                <div class="dash-card gray"><h2><span id="tm_history">0</span></h2><p>History</p></div>
+            <h2 style="margin-top:0; font-size: 24px; font-weight: 800;">Task Monitor</h2>
+            <p style="margin:5px 0 25px; color:var(--text-muted); font-size:13px;">Pantau proses render dan live streaming secara real-time.</p>
+            
+            <div class="grid-3" style="margin-bottom: 30px;">
+                <div class="dash-card"><h2><span id="tm_channels">0</span></h2><p>Connected Channels</p></div>
+                <div class="dash-card blue"><h2><span id="tm_active">0</span></h2><p>Active Tasks</p></div>
+                <div class="dash-card gray"><h2><span id="tm_history">0</span></h2><p>Completed Tasks</p></div>
             </div>
-            <h3 style="color:var(--danger); font-size:14px; margin-top:30px;">🔴 LIVE STREAMING</h3>
-            <table><thead><tr><th>ID</th><th>JUDUL</th><th>JADWAL</th><th>STATUS</th><th>AKSI</th></tr></thead><tbody id="tabelAktifLive"></tbody></table>
-            <h3 style="color:var(--secondary); font-size:14px; margin-top:30px;">📺 VOD PROCESS</h3>
-            <table><thead><tr><th>ID</th><th>JUDUL</th><th>JADWAL</th><th>STATUS</th><th>AKSI</th></tr></thead><tbody id="tabelAktifVOD"></tbody></table>
-            <div style="margin-top:40px; display:flex; justify-content:space-between;"><h3>🗂️ History</h3><button class="btn-small" onclick="clearHistory()">🧹 Clear</button></div>
-            <table><tbody id="tabelHistory"></tbody></table>
+            
+            <h3 style="color:var(--danger); font-size:16px; margin-bottom:5px; display:flex; align-items:center; gap:8px;"><span class="dot-excellent" style="background:var(--danger); box-shadow:none; animation:none;"></span> LIVE STREAMING (ON AIR)</h3>
+            <div style="overflow-x: auto; margin-bottom: 40px;">
+                <table style="min-width: 800px;">
+                    <thead><tr><th width="10%">ID</th><th width="30%">JUDUL & BAHAN</th><th width="20%">JADWAL / MATI</th><th width="25%">STATUS KONEKSI</th><th width="15%">AKSI</th></tr></thead>
+                    <tbody id="tabelAktifLive"></tbody>
+                </table>
+            </div>
+
+            <h3 style="color:var(--secondary); font-size:16px; margin-bottom:5px; display:flex; align-items:center; gap:8px;"><span class="dot-excellent" style="background:var(--secondary); box-shadow:none; animation:none;"></span> VOD RENDER & UPLOAD</h3>
+            <div style="overflow-x: auto; margin-bottom: 50px;">
+                <table style="min-width: 800px;">
+                    <thead><tr><th width="10%">ID</th><th width="30%">JUDUL & BAHAN</th><th width="20%">JADWAL TAYANG</th><th width="25%">STATUS PROSES</th><th width="15%">AKSI</th></tr></thead>
+                    <tbody id="tabelAktifVOD"></tbody>
+                </table>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:25px; margin-top:20px;">
+                <h3 style="color:var(--text-muted); font-size:15px; margin:0;">🗂️ History (Selesai / Gagal)</h3>
+                <button class="btn-small" onclick="clearHistory()">🧹 Bersihkan Riwayat</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table style="opacity: 0.8; min-width: 800px;">
+                    <thead><tr><th>ID</th><th>TIPE</th><th>JUDUL</th><th>STATUS AKHIR</th></tr></thead>
+                    <tbody id="tabelHistory"></tbody>
+                </table>
+            </div>
         </div>
 
         <div id="settings" class="panel">
-            <h2>System Settings</h2>
-            <div style="background:var(--bg-input); padding:25px; border-radius:12px; margin-bottom:30px;">
-                <h3>🔑 API & Channels</h3>
-                <form id="apiUploadForm" onsubmit="uploadSecret(event)" style="display:flex; gap:15px; align-items:center;">
-                    <input type="file" name="secret_file" accept=".json" required>
-                    <button type="submit" class="btn-small" style="background:var(--primary); color:white; width:200px;">UPLOAD API</button>
+            <h2 style="margin-top:0; font-size: 24px; font-weight: 800;">System Settings</h2>
+            <p style="margin:5px 0 25px; color:var(--text-muted); font-size:13px;">Kelola API Google dan Channel YouTube Anda.</p>
+
+            <div style="background:var(--bg-panel); padding:30px; border-radius:var(--radius); border:1px solid var(--border); box-shadow:var(--shadow); margin-bottom: 30px; position:relative; overflow:hidden;">
+                <div style="position:absolute; top:0; left:0; width:6px; height:100%; background:var(--secondary);"></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3 style="margin:0; font-size:16px;">🔑 Google OAuth 2.0 API</h3>
+                    <span id="api_status_badge" style="background:var(--bg-input); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; border:1px solid var(--border);">Mengecek...</span>
+                </div>
+                <p style="font-size:13px; color:var(--text-muted); margin-top:0;">Wajib upload <b>client_secret.json</b> (Tipe: TVs and Limited Input devices) agar KeiBot bisa mengelola channel Anda.</p>
+                <form id="apiUploadForm" onsubmit="uploadSecret(event)" style="display:flex; gap:15px; align-items:center; margin-top:20px;">
+                    <input type="file" name="secret_file" accept=".json" required style="flex-grow:1; margin:0;">
+                    <button type="submit" class="btn-gold" style="width:200px; margin:0; padding:12px;">UPLOAD API KEY</button>
                 </form>
-                <div id="api_status_badge" style="margin-top:10px; font-weight:700;">Mengecek...</div>
-                <button class="btn-gold" style="width:auto; padding:10px 20px;" onclick="generateTVLink()">➕ Link Channel Baru</button>
             </div>
-            <div id="tvContainer" style="display:none; padding:15px; background:rgba(16,185,129,0.1); border-radius:10px; margin-bottom:20px;">
-                <p id="tvMsg" style="margin:0 0 10px;"></p>
-                <div style="display:flex; gap:10px;"><input type="text" id="tvUrl" readonly><button class="btn-small" onclick="copyTVUrl()">COPY</button></div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0; font-size:18px;">📺 Connected Channels</h3>
+                <button class="btn-gold" style="width:auto; margin:0; padding:10px 20px; border-radius:8px;" onclick="generateTVLink()">➕ Tautkan Channel Baru</button>
             </div>
-            <div id="settingsGrid"></div>
+            
+            <div id="tvContainer" style="display:none; margin-bottom:25px; background:var(--bg-input); padding:20px; border-radius:12px; border:1px solid var(--primary);">
+                <p style="margin:0 0 10px 0; font-size:13px; font-weight:600; color:var(--primary);" id="tvMsg">Copy link di bawah dan paste di profil Chrome channel YouTube target Anda.</p>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="tvUrl" readonly style="margin:0; font-family:monospace; font-weight:bold; color:var(--text-main);">
+                    <button class="btn-small" onclick="copyTVUrl()" style="margin:0; padding:0 25px; background:var(--primary); color:white; border:none;">COPY</button>
+                </div>
+            </div>
+
+            <div class="settings-grid" id="settingsGrid"></div>
         </div>
 
         <div id="upload" class="panel">
-            <h2 style="color:var(--secondary);">VOD Render Studio</h2>
+            <h2 style="margin-top:0; font-size: 24px; font-weight: 800; color:var(--secondary);">VOD Render Studio</h2>
+            <p style="margin:5px 0 25px; color:var(--text-muted); font-size:13px;">Render video offline secara otomatis dan jadwalkan upload.</p>
+            
             <form id="formUpload" onsubmit="submitForm(event, '/api/upload_vod')">
-                <label>Target Channel</label>
-                <select name="channel_select" id="vod_channel_select" required onchange="fetchPlaylists(this.value, 'vod_playlist_select');"></select>
-                
-                <div class="grid-3" style="margin-top:15px;">
-                    <div><label>Audio Playlist</label><input type="file" name="audios" multiple required onchange="calcAudioDuration(this, 'vod_dur_info')"><small id="vod_dur_info">Durasi: 00:00:00</small></div>
-                    <div><label>Background</label><input type="file" name="background" multiple required></div>
-                    <div><label>Loop Count</label><input type="number" name="loop_count" id="vod_loop_count" value="1" min="1" oninput="updateTotalDuration('vod')"><small id="vod_total_info">VOD: 00:00:00</small></div>
+                <div style="background:var(--bg-input); padding:25px; border-radius:12px; border:1px solid var(--border); margin-bottom:20px;">
+                    <label style="font-weight:700; font-size:13px; color:var(--text-main);">Target Channel</label>
+                    <select name="channel_select" id="vod_channel_select" required onchange="fetchPlaylists(this.value, 'vod_playlist_select');"></select>
+                    
+                    <div class="grid-3" style="margin-top: 20px;">
+                        <div><label style="font-weight:700; font-size:12px;">Audio Playlist (Multi)</label><input type="file" name="audios" id="vod_audio_input" multiple accept=".mp3,.wav" required onchange="calcAudioDuration(this, 'vod_dur_info')"><small id="vod_dur_info" style="color:var(--text-muted); display:block; font-family:monospace; margin-top:8px;">Durasi Asli: 00:00:00</small></div>
+                        <div><label style="font-weight:700; font-size:12px;">Background Video/Image</label><input type="file" name="background" multiple accept=".mp4,.jpg,.png" required></div>
+                        <div><label style="font-weight:700; font-size:12px;">Looping (Penggandaan)</label><input type="number" name="loop_count" id="vod_loop_count" min="1" value="1" required oninput="updateTotalDuration('vod')"><small id="vod_total_info" style="color:var(--secondary); display:block; font-family:monospace; font-weight:bold; margin-top:8px;">Estimasi Final: 00:00:00</small></div>
+                    </div>
                 </div>
 
-                <div style="background:rgba(16,185,129,0.05); padding:20px; border-radius:12px; margin:20px 0;">
+                <div style="background:rgba(16, 185, 129, 0.05); border:1px dashed var(--primary); padding:20px; border-radius:12px; margin-bottom:20px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <b>🎲 Smart Title Spinner</b>
-                        <button type="button" onclick="generateAutoTitle('vod')" class="btn-small" style="background:var(--primary); color:white;">SPIN JUDUL</button>
+                        <div>
+                            <label style="font-weight:800; color:var(--primary); font-size:14px; display:block;">🎲 Auto-Spin Judul Pintar</label>
+                            <small style="color:var(--text-muted); font-size:11px;">Menarik judul dari file .txt di Settings Channel</small>
+                        </div>
+                        <button type="button" onclick="generateAutoTitle('vod')" style="background:var(--primary); color:white; border:none; padding:10px 25px; font-weight:800; font-size:12px; border-radius:8px; cursor:pointer; box-shadow:0 4px 10px rgba(16,185,129,0.3); transition:0.2s;">SPIN JUDUL</button>
                     </div>
-                    <div id="tags_vod" style="margin-top:10px;">
-                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{tag}">🏷️ Tag</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{hari}">📅 Hari</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{day}">📆 Day</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{bulan}">🌙 Bulan</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{month}">🌒 Month</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{tahun}">🎯 Year</span>
+                    
+                    <div style="margin-top:15px; border-top:1px solid rgba(16, 185, 129, 0.2); padding-top:15px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Akhiran Judul Otomatis (Klik untuk aktifkan):</span>
+                        <div id="tags_vod">
+                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{tag}">🏷️ Input Tag</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{hari}">📅 Hari (Indo)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{day}">📆 Day (Eng)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{bulan}">🌙 Bulan (Indo)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{month}">🌒 Month (Eng)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{tahun}">🎯 Tahun/Year</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="grid-3">
-                    <div style="grid-column: span 2;"><label>Judul Video</label><input type="text" name="title" required></div>
-                    <div><label>Thumbnail</label><input type="file" name="thumbnail" accept=".jpg,.png"></div>
+                <div style="border-top: 1px solid var(--border); padding-top: 25px;">
+                    <h3 style="font-size:15px; margin-top:0;">📝 YouTube Metadata</h3>
+                    <div class="grid-3">
+                        <div style="grid-column: span 2;"><label style="font-weight:600; font-size:12px;">Judul Video</label><input type="text" name="title" required></div>
+                        <div><label style="font-weight:600; font-size:12px;">Thumbnail Custom</label><input type="file" name="thumbnail" accept=".jpg,.png,.jpeg"></div>
+                    </div>
+                    <div class="grid-3" style="margin-top: 15px;">
+                        <div style="grid-column: span 2;"><label style="font-weight:600; font-size:12px;">Deskripsi Video</label><textarea name="description" rows="4"></textarea></div>
+                        <div>
+                            <label style="font-weight:600; font-size:12px;">Tags (Koma)</label><input type="text" name="tags" placeholder="Lofi, Relax, Chill">
+                            <label style="font-weight:600; font-size:12px; margin-top:10px; display:block;">Pilih Playlist</label><select name="playlist" id="vod_playlist_select"><option value="">-- Pilih Channel --</option></select>
+                        </div>
+                    </div>
+                    <div class="grid-3" style="margin-top:15px;">
+                        <div><label style="font-weight:600; font-size:12px;">Jadwal Tayang (Kosongkan = Langsung)</label><input type="datetime-local" name="schedule"></div>
+                        <div>
+                            <label style="font-weight:600; font-size:12px;">Privasi Video</label>
+                            <select name="privacy" style="color:var(--primary); font-weight:bold;">
+                                <option value="public">🌍 Public (Publik)</option>
+                                <option value="unlisted">🔗 Unlisted (Tidak Publik)</option>
+                                <option value="private">🔒 Private (Pribadi)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                <div class="grid-3">
-                    <div style="grid-column: span 2;"><label>Deskripsi</label><textarea name="description" rows="3"></textarea></div>
-                    <div><label>Tags</label><input type="text" name="tags"><label>Playlist</label><select name="playlist" id="vod_playlist_select"></select></div>
-                </div>
-                <div class="grid-3">
-                    <div><label>Jadwal (Kosong = Langsung)</label><input type="datetime-local" name="schedule"></div>
-                    <div><label>Privacy</label><select name="privacy"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select></div>
-                </div>
-                <div id="visVod" class="vis-box"></div>
-                <button type="submit" class="btn-gold">🚀 TAMBAH KE ANTREAN</button>
+                <div class="vis-box" id="visVod" style="margin-top:25px;"></div>
+                <button type="submit" class="btn-gold">🚀 TAMBAHKAN KE ANTREAN RENDER</button>
             </form>
         </div>
 
         <div id="live" class="panel">
-            <h2 style="color:var(--danger);">Live Streaming Station</h2>
+            <h2 style="margin-top:0; font-size: 24px; font-weight: 800; color:var(--danger);">🔴 Live Streaming Station</h2>
+            <p style="margin:5px 0 25px; color:var(--text-muted); font-size:13px;">Pusat kontrol siaran langsung 24/7 tanpa henti.</p>
+
             <form id="formLive" onsubmit="submitForm(event, '/api/schedule_live')">
-                <label>Target Channel</label>
-                <select name="channel_select" id="live_channel_select" required onchange="handleLiveChannelSelect(this);"></select>
-                
-                <div class="grid-3" style="margin-top:15px;">
-                    <div><label>Audio Playlist</label><input type="file" name="audios" multiple required></div>
-                    <div><label>Background</label><input type="file" name="background" multiple required></div>
-                    <div><label>Stream Key</label><select name="stream_key" id="live_stream_key" required></select></div>
+                <div style="background:var(--bg-input); padding:25px; border-radius:12px; border:1px solid var(--border); margin-bottom:20px;">
+                    <label style="font-weight:700; font-size:13px; color:var(--text-main);">Target Channel</label>
+                    <select name="channel_select" id="live_channel_select" required onchange="handleLiveChannelSelect(this);"></select>
+                    
+                    <div class="grid-3" style="margin-top: 20px;">
+                        <div><label style="font-weight:700; font-size:12px;">Audio Playlist</label><input type="file" name="audios" multiple accept=".mp3,.wav" required></div>
+                        <div><label style="font-weight:700; font-size:12px;">Background (Loop)</label><input type="file" name="background" multiple accept=".mp4,.gif,.jpg" required></div>
+                        <div><label style="font-weight:700; font-size:12px;">Stream Key</label><select name="stream_key" id="live_stream_key" required><option value="">-- Pilih Channel --</option></select></div>
+                    </div>
                 </div>
 
-                <div style="background:rgba(239,68,68,0.05); padding:20px; border-radius:12px; margin:20px 0;">
+                <div style="background:rgba(239, 68, 68, 0.05); border:1px dashed var(--danger); padding:20px; border-radius:12px; margin-bottom:20px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <b>🎲 Live Title Spinner</b>
-                        <button type="button" onclick="generateAutoTitle('live')" class="btn-small" style="background:var(--danger); color:white;">SPIN JUDUL</button>
+                        <div>
+                            <label style="font-weight:800; color:var(--danger); font-size:14px; display:block;">🎲 Auto-Spin Judul Pintar</label>
+                            <small style="color:var(--text-muted); font-size:11px;">Menarik judul dari file .txt di Settings Channel</small>
+                        </div>
+                        <button type="button" onclick="generateAutoTitle('live')" style="background:var(--danger); color:white; border:none; padding:10px 25px; font-weight:800; font-size:12px; border-radius:8px; cursor:pointer; box-shadow:0 4px 10px rgba(239,68,68,0.3); transition:0.2s;">SPIN JUDUL</button>
                     </div>
-                    <div id="tags_live" style="margin-top:10px;">
-                        <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{tag}">🏷️ Tag</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{hari}">📅 Hari</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{day}">📆 Day</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{bulan}">🌙 Bulan</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{month}">🌒 Month</span>
-                        <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{tahun}">🎯 Year</span>
+                    
+                    <div style="margin-top:15px; border-top:1px solid rgba(239, 68, 68, 0.2); padding-top:15px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Akhiran Judul Otomatis (Klik untuk aktifkan):</span>
+                        <div id="tags_live">
+                            <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{tag}">🏷️ Input Tag</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{hari}">📅 Hari (Indo)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{day}">📆 Day (Eng)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{bulan}">🌙 Bulan (Indo)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{month}">🌒 Month (Eng)</span>
+                            <span class="tag-chip" onclick="this.classList.toggle('active-live')" data-val="{tahun}">🎯 Tahun/Year</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="grid-3">
-                    <div style="grid-column: span 2;"><label>Judul Live</label><input type="text" name="title" required></div>
-                    <div><label>Privacy</label><select name="privacy"><option value="public">Public</option><option value="unlisted">Unlisted</option></select></div>
+                <div style="border-top: 1px solid var(--border); padding-top: 25px;">
+                    <h3 style="font-size:15px; margin-top:0;">📝 YouTube Live Metadata</h3>
+                    <div class="grid-3">
+                        <div style="grid-column: span 2;"><label style="font-weight:600; font-size:12px;">Judul Live</label><input type="text" name="title" required></div>
+                        <div><label style="font-weight:600; font-size:12px;">Thumbnail Live</label><input type="file" name="thumbnail" accept=".jpg,.png,.jpeg"></div>
+                    </div>
+                    <div class="grid-3" style="margin-top: 15px;">
+                        <div style="grid-column: span 2;"><label style="font-weight:600; font-size:12px;">Deskripsi Live</label><textarea name="description" rows="4"></textarea></div>
+                        <div>
+                            <label style="font-weight:600; font-size:12px;">Tags (Koma)</label><input type="text" name="tags">
+                            <label style="font-weight:600; font-size:12px; margin-top:10px; display:block;">Privasi Siaran</label>
+                            <select name="privacy" style="color:var(--danger); font-weight:bold;">
+                                <option value="public">🌍 Public (Langsung Publik)</option>
+                                <option value="unlisted">🔗 Unlisted (Tes Streaming)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid-3" style="margin-top:15px;">
+                        <div><label style="font-weight:600; font-size:12px; color:var(--danger);">Waktu Mulai (Start Live)</label><input type="datetime-local" name="schedule_start" required></div>
+                        <div><label style="font-weight:600; font-size:12px;">Waktu Mati (Auto-Clean)</label><input type="datetime-local" name="schedule_end" required></div>
+                    </div>
                 </div>
-                <textarea name="description" rows="3" placeholder="Deskripsi live..."></textarea>
-                <div class="grid-3" style="margin-top:15px;">
-                    <div><label>Waktu Mulai</label><input type="datetime-local" name="schedule_start" required></div>
-                    <div><label>Waktu Mati</label><input type="datetime-local" name="schedule_end" required></div>
-                </div>
-                <div id="visLive" class="vis-box"></div>
-                <button type="submit" class="btn-gold" style="background:var(--danger);">🔴 MULAI LIVE</button>
+                <div class="vis-box" id="visLive" style="margin-top:25px;"></div>
+                <button type="submit" class="btn-gold" style="background:var(--danger); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">🔴 MULAI SIARAN LANGSUNG</button>
             </form>
         </div>
     </div>
@@ -228,30 +373,63 @@
         let browserQueue = []; let isUploading = false; 
 
         function submitForm(e, api) { 
-            e.preventDefault(); let form = e.target; let formData = new FormData(form);
-            let isVod = api.includes('upload_vod'); let id = "Q-" + Math.floor(Math.random() * 9999);
-            browserQueue.push({ id: id, api: api, dataBahan: formData, judul: formData.get('title'), status: '⏳ Mengantre', isVod: isVod });
-            form.reset(); switchTab('tasks'); renderTableTasks(); prosesKokiMasak(); 
+            e.preventDefault(); 
+            let form = e.target; let formData = new FormData(form);
+            let isVod = api.includes('upload_vod');
+            let idAntrean = "Q-" + Math.floor(Math.random() * 9999);
+            let judul = formData.get('title') || 'Video Tanpa Judul';
+            let jadwal = isVod ? (formData.get('schedule') ? formData.get('schedule').replace('T', ' ') : '🚀 Rilis Instan') : `${formData.get('schedule_start').replace('T', ' ')} s/d ${formData.get('schedule_end').replace('T', ' ')}`;
+
+            browserQueue.push({ id: idAntrean, api: api, dataBahan: formData, judul: judul, jadwal: jadwal, isVod: isVod, status: '⏳ Mengantre Server', progress: 0 });
+            form.reset(); form.querySelectorAll('input[type=range]').forEach(el => el.dispatchEvent(new Event('input'))); 
+            switchTab('tasks'); renderTableTasks(); prosesKokiMasak(); 
         }
 
         function prosesKokiMasak() {
             if(isUploading) return;
-            let idx = browserQueue.findIndex(t => t.status.includes('Mengantre'));
-            if(idx === -1) { isUploading = false; return; }
-            isUploading = true; let task = browserQueue[idx];
+            let indexBahan = browserQueue.findIndex(t => t.status.includes('Mengantre'));
+            if(indexBahan === -1) { isUploading = false; return; }
+
+            isUploading = true; let task = browserQueue[indexBahan];
+            task.status = '🚀 Upload Bahan... 0%'; renderTableTasks();
+
             let xhr = new XMLHttpRequest(); xhr.open("POST", task.api, true);
-            xhr.upload.onprogress = (e) => { if(e.lengthComputable) task.status = `🚀 Upload ${Math.round((e.loaded/e.total)*100)}%`; renderTableTasks(); };
-            xhr.onload = () => { if(xhr.status >= 200 && xhr.status < 300) browserQueue.splice(idx, 1); else task.status = '❌ Ditolak'; isUploading = false; fetchDataFromServer(); prosesKokiMasak(); };
+            xhr.upload.onprogress = function(event) {
+                if (event.lengthComputable) {
+                    task.progress = Math.round((event.loaded / event.total) * 100);
+                    task.status = `🚀 Upload Bahan... ${task.progress}%`;
+                    renderTableTasks(); 
+                }
+            };
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) { browserQueue.splice(indexBahan, 1); } 
+                else { task.status = '❌ Ditolak Server'; }
+                isUploading = false; fetchDataFromServer(); prosesKokiMasak(); 
+            };
+            xhr.onerror = function() { task.status = '❌ Koneksi Putus'; isUploading = false; renderTableTasks(); prosesKokiMasak(); };
             xhr.send(task.dataBahan);
         }
 
-        // --- SPINNER LOGIC ---
+        function batalAntreanLokal(id) {
+            let idx = browserQueue.findIndex(t => t.id === id);
+            if(idx !== -1) {
+                if(browserQueue[idx].status.includes('Upload')) return alert("Sedang proses upload, tidak bisa batal.");
+                browserQueue.splice(idx, 1); renderTableTasks();
+            }
+        }
+
+        // --- SISTEM AUTO SPINNER CHAMELEON ---
         function generateAutoTitle(mode) {
             let chId = document.getElementById(`${mode}_channel_select`).value;
+            if(!chId) return alert("Pilih channel dulu Bos!");
+            
             let channel = cachedChannels.find(c => c.yt_id === chId);
-            if(!channel || !channel.title_bank || channel.title_bank.length === 0) return alert("Upload file .txt judul di Settings!");
+            if(!channel || !channel.title_bank || channel.title_bank.length === 0) {
+                return alert("Bank Judul kosong!\nSilakan masuk ke menu 'Settings', pilih Channel ini, lalu upload file .txt yang berisi daftar judul.");
+            }
 
             let bahan = channel.title_bank;
+
             let starts = []; let ends = []; let separators = [];
             bahan.forEach(t => {
                 let match = t.match(/([|:\-])/);
@@ -264,74 +442,254 @@
                 }
             });
 
-            let finalTemplate = starts[Math.floor(Math.random()*starts.length)] + (separators.length > 0 ? ` ${separators[Math.floor(Math.random()*separators.length)]} ` : " ") + ends[Math.floor(Math.random()*ends.length)];
+            let randomStart = starts[Math.floor(Math.random() * starts.length)];
+            let randomEnd = ends[Math.floor(Math.random() * ends.length)];
+            let useSep = separators.length > 0 ? ` ${separators[Math.floor(Math.random() * separators.length)]} ` : " ";
+            let finalTemplate = randomStart + useSep + randomEnd;
+
             let activeChips = document.querySelectorAll(`#tags_${mode} .active-${mode}`);
-            let suffix = []; activeChips.forEach(c => suffix.push(c.getAttribute('data-val')));
-            if(suffix.length > 0) finalTemplate += " | " + suffix.join(" ");
+            let suffixArray = [];
+            activeChips.forEach(chip => { suffixArray.push(chip.getAttribute('data-val')); });
+            
+            if (suffixArray.length > 0) {
+                finalTemplate += " | " + suffixArray.join(" ");
+            }
+
+            finalTemplate = finalTemplate.replace(/\s+/g, ' ').trim();
+
+            let formId = mode === 'vod' ? 'formUpload' : 'formLive';
+            let tagsInput = document.querySelector(`form#${formId} input[name="tags"]`).value;
+            let mainTag = tagsInput ? tagsInput.split(',')[0].trim() : "Video";
 
             let d = new Date();
-            let h_id = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-            let h_en = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-            let b_id = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-            let b_en = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            let hari_id = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+            let bulan_id = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            let hari_en = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            let bulan_en = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            let tahun = d.getFullYear();
+
+            let res = finalTemplate
+                .replace(/{hari}/gi, hari_id[d.getDay()]).replace(/{day}/gi, hari_en[d.getDay()])
+                .replace(/{bulan}/gi, bulan_id[d.getMonth()]).replace(/{month}/gi, bulan_en[d.getMonth()])
+                .replace(/{tahun}/gi, tahun).replace(/{year}/gi, tahun).replace(/{tag}/gi, mainTag);
+
+            let inp = document.querySelector(`form#${formId} input[name="title"]`);
+            inp.value = res;
             
-            let res = finalTemplate.replace(/{hari}/gi, h_id[d.getDay()]).replace(/{day}/gi, h_en[d.getDay()])
-                                  .replace(/{bulan}/gi, b_id[d.getMonth()]).replace(/{month}/gi, b_en[d.getMonth()])
-                                  .replace(/{tahun}/gi, d.getFullYear()).replace(/{year}/gi, d.getFullYear())
-                                  .replace(/{tag}/gi, document.querySelector(`form#form${mode==='vod'?'Upload':'Live'} input[name="tags"]`)?.value?.split(',')[0] || "Music");
-
-            document.querySelector(`form#form${mode==='vod'?'Upload':'Live'} input[name="title"]`).value = res.replace(/\s+/g, ' ').trim();
+            inp.style.boxShadow = mode === 'vod' ? `0 0 0 3px rgba(16, 185, 129, 0.3)` : `0 0 0 3px rgba(239, 68, 68, 0.3)`;
+            setTimeout(() => { inp.style.boxShadow = "none"; }, 800);
         }
 
-        // --- CHANNEL MANAGEMENT ---
+        // --- MANAJEMEN CHANNEL & SETTINGS ---
+        function checkApiStatus() {
+            fetch('/api/check_secret?t=' + new Date().getTime()).then(r=>r.json()).then(d=>{
+                const b = document.getElementById('api_status_badge');
+                if(d.exists) { b.innerText = "🟢 API AKTIF"; b.style.background = "rgba(16,185,129,0.1)"; b.style.color = "var(--primary)"; b.style.borderColor = "var(--primary)"; } 
+                else { b.innerText = "🔴 BELUM ADA API"; b.style.background = "rgba(239,68,68,0.1)"; b.style.color = "var(--danger)"; b.style.borderColor = "var(--danger)"; }
+            }).catch(e=>{});
+        }
+        function uploadSecret(e) { e.preventDefault(); fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) }).then(r => r.json()).then(d => { alert(d.message); checkApiStatus(); e.target.reset(); }); }
+        
+        function loadChannels() { 
+            fetch('/api/get_channels').then(r => r.json()).then(data => { 
+                cachedChannels = data; 
+                const dds_vod = document.getElementById('vod_channel_select'); const dds_live = document.getElementById('live_channel_select'); 
+                const vod_val = dds_vod.value; const live_val = dds_live.value; 
+                dds_vod.innerHTML = '<option value="">-- Pilih Channel --</option>'; dds_live.innerHTML = '<option value="">-- Pilih Channel --</option>'; 
+                data.forEach(ch => { dds_vod.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; dds_live.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; }); 
+                if(vod_val) { dds_vod.value = vod_val; } 
+                if(live_val) { dds_live.value = live_val; handleLiveChannelSelect(dds_live); } 
+                renderSettingsGrid(); 
+            }); 
+        }
+
+        function deleteChannel(yt_id) {
+            if(confirm("Yakin ingin MENGHAPUS channel ini dari sistem KeiBot?")) {
+                let fd = new FormData(); fd.append('yt_id', yt_id);
+                fetch('/api/delete_channel', {method:'POST', body:fd}).then(r=>r.json()).then(d=>{ alert(d.message); loadChannels(); });
+            }
+        }
+
         function uploadBankTxt(yt_id) {
-            let inp = document.getElementById('txt_bank_'+yt_id); if(!inp.files[0]) return;
-            let fd = new FormData(); fd.append('yt_id', yt_id); fd.append('txt_file', inp.files[0]);
-            fetch('/api/upload_title_bank', {method:'POST', body:fd}).then(r=>r.json()).then(d=>{ alert(d.message); loadChannels(); });
+            let fileInput = document.getElementById('txt_bank_' + yt_id);
+            if(fileInput.files.length === 0) return alert("Pilih file .txt dulu Bos!");
+            let fd = new FormData(); fd.append('yt_id', yt_id); fd.append('txt_file', fileInput.files[0]);
+            let btn = fileInput.nextElementSibling; let oldTxt = btn.innerText;
+            btn.innerText = "Mengupload..."; btn.disabled = true;
+            fetch('/api/upload_title_bank', { method: 'POST', body: fd }).then(r => r.json()).then(d => { alert(d.message); loadChannels(); }).catch(e => { btn.innerText = oldTxt; btn.disabled = false; alert("Error Koneksi!"); });
         }
-        function deleteChannel(id) { if(confirm("Hapus?")) { let fd = new FormData(); fd.append('yt_id', id); fetch('/api/delete_channel', {method:'POST', body:fd}).then(()=>loadChannels()); } }
+
         function renderSettingsGrid() {
-            const g = document.getElementById('settingsGrid'); g.innerHTML = '';
-            cachedChannels.forEach(ch => {
-                g.innerHTML += `<div class="channel-row">
+            const sGrid = document.getElementById('settingsGrid'); sGrid.innerHTML = '';
+            cachedChannels.forEach(ch => { 
+                let keysHTML = ''; 
+                if(ch.stream_keys && ch.stream_keys.length > 0) { ch.stream_keys.forEach((sk, idx) => { let safeKey = sk.key.substring(0, 4) + "••••••••"; keysHTML += `<div class="key-item"><div><span style="color:var(--text-main); font-weight:700; margin-right:15px; font-size:13px;">${sk.name}</span><span style="color:var(--text-muted); font-family:monospace; font-size:13px;">${safeKey}</span></div><button onclick="removeStreamKey('${ch.yt_id}', ${idx})" class="btn-danger" style="padding:6px 12px;">Hapus</button></div>`; }); } 
+                else { keysHTML = '<p style="font-size:12px; color:var(--text-muted); margin:0 0 15px 0;">Belum ada Stream Key yang tersimpan.</p>'; }
+                
+                let totalJudul = ch.title_bank ? ch.title_bank.length : 0;
+
+                sGrid.innerHTML += `<div class="channel-row" style="margin-bottom:15px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; align-items:center; gap:10px;"><img src="${ch.thumbnail}" style="width:40px; border-radius:50%;"><b>${ch.name}</b></div>
-                        <div><button class="btn-danger" onclick="deleteChannel('${ch.yt_id}')">Hapus</button></div>
+                        <div class="channel-info"><img src="${ch.thumbnail}"><div><h4 style="margin:0 0 4px; font-size:16px;">${ch.name}</h4><span style="font-size:11px; font-weight:700; color:var(--primary); background:rgba(16,185,129,0.1); padding:2px 8px; border-radius:4px;">${ch.status}</span></div></div>
+                        <div><button class="btn-danger" onclick="deleteChannel('${ch.yt_id}')" style="margin-right:10px;">🗑️ Hapus Channel</button><button class="btn-small" onclick="document.getElementById('body_toggle_${ch.yt_id}').style.display = document.getElementById('body_toggle_${ch.yt_id}').style.display === 'none' ? 'block' : 'none'">⚙️ Pengaturan</button></div>
                     </div>
-                    <div style="margin-top:15px; padding-top:15px; border-top:1px solid var(--border);">
-                        <label style="font-size:11px;">Upload Bank Judul (.txt)</label>
-                        <div style="display:flex; gap:10px;"><input type="file" id="txt_bank_${ch.yt_id}" accept=".txt"><button class="btn-small" onclick="uploadBankTxt('${ch.yt_id}')">Save Bank</button></div>
-                        <small>Total: ${ch.title_bank ? ch.title_bank.length : 0} judul</small>
+                    <div id="body_toggle_${ch.yt_id}" style="display:none; width:100%; border-top:1px solid var(--border); padding-top:20px; margin-top:20px;">
+                        
+                        <h4 style="margin:0 0 15px 0; font-size:12px; color:var(--text-muted); text-transform:uppercase;">Daftar Stream Key</h4>
+                        <div id="keyList_${ch.yt_id}">${keysHTML}</div>
+                        <div style="display:flex; gap:10px; align-items:center; background:var(--bg-main); padding:15px; border-radius:10px; margin-top:15px; margin-bottom:25px;">
+                            <input type="text" id="new_key_name_${ch.yt_id}" placeholder="Nama Label (Misal: Lofi)" style="width:30%; margin:0;">
+                            <input type="password" id="new_key_val_${ch.yt_id}" placeholder="Kode rahasia xxxx-xxxx-xxxx" style="width:50%; margin:0;">
+                            <button class="btn-gold" style="width:20%; margin:0; padding:12px 0;" onclick="addStreamKey('${ch.yt_id}')">Tambah</button>
+                        </div>
+
+                        <h4 style="margin:0 0 10px 0; font-size:12px; color:var(--text-muted); text-transform:uppercase;">📚 Bank Judul (.txt)</h4>
+                        <div style="display:flex; gap:10px; align-items:center; background:var(--bg-main); padding:15px; border-radius:10px;">
+                            <input type="file" id="txt_bank_${ch.yt_id}" accept=".txt" style="flex-grow:1; margin:0; padding:10px; background:white; border:1px dashed var(--text-muted); cursor:pointer;">
+                            <button class="btn-gold" style="width:auto; margin:0; padding:12px 25px;" onclick="uploadBankTxt('${ch.yt_id}')">Upload .txt</button>
+                        </div>
+                        <p style="font-size:11px; margin-top:8px; color:var(--text-muted);">Total tersimpan: <b style="color:var(--primary); font-size:14px;">${totalJudul}</b> Judul</p>
+
                     </div>
                 </div>`;
             });
         }
-
-        // --- BASIC FUNCTIONS ---
-        function checkApiStatus() { fetch('/api/check_secret').then(r=>r.json()).then(d=>{ const b = document.getElementById('api_status_badge'); b.innerText = d.exists ? "🟢 API AKTIF" : "🔴 BELUM ADA API"; }); }
-        function loadChannels() { fetch('/api/get_channels').then(r=>r.json()).then(d=>{ cachedChannels = d; renderSettingsGrid(); const v = document.getElementById('vod_channel_select'); const l = document.getElementById('live_channel_select'); v.innerHTML = l.innerHTML = '<option value="">-- Pilih --</option>'; d.forEach(ch=>{ v.innerHTML+=`<option value="${ch.yt_id}">${ch.name}</option>`; l.innerHTML+=`<option value="${ch.yt_id}">${ch.name}</option>`; }); }); }
-        function switchTab(t) { document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active')); document.getElementById(t).classList.add('active'); if(t==='dashboard') fetchAnalyticsData(); }
-        function initApp() { injectVisualizer('visVod', 'vod'); injectVisualizer('visLive', 'live'); loadChannels(); checkApiStatus(); setInterval(()=>fetchDataFromServer(), 3000); }
-        function fetchDataFromServer() { fetch('/api/get_schedule').then(r=>r.json()).then(d=>{ lastServerData = d; renderTableTasks(); }); }
+        function addStreamKey(yt_id) { const n = document.getElementById('new_key_name_' + yt_id).value.trim(); const k = document.getElementById('new_key_val_' + yt_id).value.trim(); if(!n || !k) return; let ch = cachedChannels.find(c => c.yt_id === yt_id); if(!ch.stream_keys) ch.stream_keys = []; ch.stream_keys.push({name: n, key: k}); syncStreamKeys(yt_id, ch.stream_keys); }
+        function removeStreamKey(yt_id, index) { if(confirm("Hapus key ini?")) { let ch = cachedChannels.find(c => c.yt_id === yt_id); ch.stream_keys.splice(index, 1); syncStreamKeys(yt_id, ch.stream_keys); } }
+        function syncStreamKeys(yt_id, keysArray) { const fd = new FormData(); fd.append('yt_id', yt_id); fd.append('stream_keys', JSON.stringify(keysArray)); fetch('/api/save_stream_key', {method: 'POST', body: fd}).then(r=>r.json()).then(d=>{ loadChannels(); setTimeout(()=>{document.getElementById('body_toggle_' + yt_id).style.display = 'block';}, 500); }); }
         
-        function renderTableTasks() {
-            const v = document.getElementById('tabelAktifVOD'); v.innerHTML = ''; const l = document.getElementById('tabelAktifLive'); l.innerHTML = '';
-            browserQueue.forEach(p => { let row = `<tr><td>${p.id}</td><td>${p.judul}</td><td>-</td><td><b>${p.status}</b></td><td><button class="btn-danger" onclick="batalAntreanLokal('${p.id}')">X</button></td></tr>`; if(p.isVod) v.innerHTML+=row; else l.innerHTML+=row; });
-            lastServerData.active.forEach(t => { 
-                let st = t.type.includes("LIVE") && t.status.includes("ON AIR") ? `<span class="dot-excellent"></span> ${t.status}` : t.status;
-                let row = `<tr><td>#${t.id}</td><td>${t.title}</td><td>${t.time}</td><td><b>${st}</b></td><td><button class="btn-danger" onclick="stopTask(${t.id})">STOP</button></td></tr>`;
-                if(t.type.includes("VOD")) v.innerHTML+=row; else l.innerHTML+=row;
+        function handleLiveChannelSelect(selectElem) { const c = cachedChannels.find(ch => ch.yt_id === selectElem.value); const keyDropdown = document.getElementById('live_stream_key'); keyDropdown.innerHTML = '<option value="">-- Pilih Stream Key --</option>'; if(c && c.stream_keys && c.stream_keys.length > 0) { c.stream_keys.forEach((sk) => { keyDropdown.innerHTML += `<option value="${sk.key}">${sk.name}</option>`; }); } }
+        function fetchPlaylists(yt_id, target_select_id) { const plSelect = document.getElementById(target_select_id); if(!plSelect) return; plSelect.innerHTML = '<option value="">⏳ Mengambil Playlist...</option>'; if(!yt_id) return plSelect.innerHTML = '<option value="">-- Pilih Channel --</option>'; fetch('/api/get_playlists?yt_id=' + yt_id).then(r => r.json()).then(data => { plSelect.innerHTML = '<option value="">-- Tidak Masuk Playlist --</option>'; data.forEach(pl => plSelect.innerHTML += `<option value="${pl.id}">${pl.title}</option>`); }).catch(() => { plSelect.innerHTML = '<option value="">❌ Gagal mengambil data</option>'; }); }
+
+        function generateTVLink() { fetch('/api/generate_tv_link').then(r => r.json()).then(d => { const box = document.getElementById('tvContainer'); const msg = document.getElementById('tvMsg'); const input = document.getElementById('tvUrl'); box.style.display='block'; if(d.error) { msg.innerText = d.error; msg.style.color = "var(--danger)"; input.style.display = "none"; box.style.borderColor = "var(--danger)"; } else { msg.innerText = "Copy link ini di profil target:"; msg.style.color = "var(--primary)"; input.style.display = "block"; input.value = d.auth_url; box.style.borderColor = "var(--primary)"; } }); }
+        function copyTVUrl() { document.getElementById('tvUrl').select(); document.execCommand('copy'); alert('Link disalin!'); }
+
+        // --- DASHBOARD ANALYTICS ---
+        function fetchAnalyticsData() { fetch('/api/get_youtube_analytics').then(r=>r.json()).then(data => { analyticsData = data; const filter = document.getElementById('analytics_filter'); filter.innerHTML = '<option value="ALL">🌟 ALL CHANNELS</option>'; data.forEach(d => { filter.innerHTML += `<option value="${d.yt_id}">${d.name}</option>`; }); renderAnalytics(); }); }
+        function renderAnalytics() {
+            const filterVal = document.getElementById('analytics_filter').value; const monBox = document.getElementById('monetize_box'); let tV=0, tS=0, tW=0; let cL = [], cV = [], cS = [];
+            const pC = getComputedStyle(document.body).getPropertyValue('--primary').trim(); const sC = getComputedStyle(document.body).getPropertyValue('--secondary').trim();
+            if(filterVal === 'ALL') { monBox.style.display = 'none'; analyticsData.forEach(d => { tV+=d.views; tS+=d.subs; tW+=d.watch_hours; cL.push(d.name); cV.push(d.views); cS.push(d.subs); }); renderChart("Perbandingan Views & Subs", cL, cV, cS, 'bar', pC, sC); } 
+            else { monBox.style.display = 'block'; const d = analyticsData.find(x => x.yt_id === filterVal); if(d) { tV = d.views; tS = d.subs; tW = d.watch_hours; let pS = Math.min((tS / 1000) * 100, 100); let pW = Math.min((tW / 4000) * 100, 100); document.getElementById('prog_subs').style.width = pS + '%'; document.getElementById('prog_watch').style.width = pW + '%'; let sb = document.getElementById('mon_status'); if(tS >= 1000 && tW >= 4000) { sb.innerText = "🎉 MEMENUHI SYARAT"; sb.style.background = "rgba(16,185,129,0.1)"; sb.style.color = "var(--primary)"; sb.style.borderColor = "var(--primary)"; } else { sb.innerText = "❌ BELUM SYARAT"; sb.style.background = "rgba(239,68,68,0.1)"; sb.style.color = "var(--danger)"; sb.style.borderColor = "var(--danger)"; } renderChart(`Statistik: ${d.name}`, ['Subscribers', 'Videos'], [d.subs, d.videos], [], 'doughnut', sC, pC); } }
+            document.getElementById('st_views').innerText = tV.toLocaleString(); document.getElementById('st_watch').innerText = tW.toLocaleString(); document.getElementById('st_subs').innerText = tS.toLocaleString();
+        }
+        function renderChart(title, labels, d1, d2, type, c1, c2) { const ctx = document.getElementById('myChart').getContext('2d'); if(myChartInstance) myChartInstance.destroy(); let dts = []; if(type === 'bar') dts = [{ label: 'Total Views', data: d1, backgroundColor: c1, borderRadius:6 }, { label: 'Subscribers', data: d2, backgroundColor: c2, borderRadius:6 }]; else dts = [{ data: d1, backgroundColor: [c1, c2], borderWidth:0 }]; Chart.defaults.color = '#64748b'; Chart.defaults.font.family = 'Segoe UI'; myChartInstance = new Chart(ctx, { type: type, data: { labels: labels, datasets: dts }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, font: {size:16, weight:'bold'}, color: '#1e293b' } }, scales: type === 'bar' ? { y: { beginAtZero: true, grid:{color:'#e2e8f0'} }, x: { grid:{display:false} } } : {} } }); }
+
+        function switchTab(tId) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active')); document.getElementById(tId).classList.add('active'); document.getElementById(`btn-${tId}`).classList.add('active'); if(tId==='dashboard') fetchAnalyticsData(); }
+        
+        let cBaseS = 0; function fmtTime(s) { const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sc = Math.floor(s % 60); return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`; } function getAudDur(f) { return new Promise((res) => { const a = new Audio(URL.createObjectURL(f)); a.addEventListener('loadedmetadata', () => res(a.duration)); a.addEventListener('error', () => res(0)); }); } async function calcAudioDuration(inp, id) { const fs = inp.files; if(fs.length === 0) { cBaseS = 0; document.getElementById(id).innerText = "Durasi Asli: 00:00:00"; updateTotalDuration('vod'); return; } document.getElementById(id).innerText = "Membaca..."; let t = 0; for(let i=0; i<fs.length; i++) t += await getAudDur(fs[i]); cBaseS = t; document.getElementById(id).innerText = "Durasi Asli: " + fmtTime(t); updateTotalDuration('vod'); } function updateTotalDuration(m) { const lp = parseInt(document.getElementById(m + '_loop_count').value) || 1; document.getElementById(m + '_total_info').innerText = "Estimasi Final: " + fmtTime(cBaseS * lp); }
+
+        // --- TASK MONITOR ---
+        let lastServerData = {active: [], history: []};
+        function fetchDataFromServer() { fetch('/api/get_schedule').then(r => r.json()).then(data => { lastServerData = data; renderTableTasks(); }).catch(e => {}); }
+        function renderTableTasks() { 
+            const tbVOD = document.getElementById('tabelAktifVOD'); tbVOD.innerHTML = ''; const tbLive = document.getElementById('tabelAktifLive'); tbLive.innerHTML = ''; const tbH = document.getElementById('tabelHistory'); tbH.innerHTML = ''; let vC = 0; let lC = 0; 
+            
+            browserQueue.forEach(p => {
+                let w = p.status.includes('Upload') ? 'var(--secondary)' : '#f59e0b'; let btn = p.status.includes('Upload') ? `<button class="btn-small" disabled style="opacity:0.5;">Upload...</button>` : `<button class="btn-danger" onclick="batalAntreanLokal('${p.id}')">Batalkan</button>`;
+                let row = `<tr><td><span style="color:var(--text-muted); font-weight:700;">${p.id}</span></td><td style="font-weight:700;">${p.judul}</td><td style="color:var(--text-muted); font-size:12px;">${p.jadwal}</td><td style="color:${w}; font-weight:700;">${p.status}</td><td>${btn}</td></tr>`;
+                if(p.isVod) { tbVOD.innerHTML += row; vC++; } else { tbLive.innerHTML += row; lC++; }
             });
-            document.getElementById('tm_active').innerText = lastServerData.active.length + browserQueue.length;
+            lastServerData.active.forEach(t => { 
+                let btnStop = `<button class="btn-danger" onclick="stopTask(${t.id})">Stop Paksa</button>`; 
+                
+                let statusHtml = t.status;
+                if(t.type.includes("LIVE")) {
+                    if(t.status.includes("ON AIR")) statusHtml = `<span class="dot-excellent"></span> <span style="color:var(--primary); font-weight:700;">${t.status} (Excellent)</span>`;
+                    else if (t.status.includes("Menunggu") || t.status.includes("Menyiapkan")) statusHtml = `<span class="dot-poor"></span> <span style="color:#f59e0b; font-weight:700;">${t.status}</span>`;
+                    else statusHtml = `<span style="color:var(--text-muted); font-weight:700;">${t.status}</span>`;
+                } else {
+                    statusHtml = `<span style="color:var(--secondary); font-weight:700;">${t.status}</span>`;
+                }
+
+                let row = `<tr><td><span style="color:var(--text-muted); font-weight:700;">#${t.id}</span></td><td style="font-weight:700;">${t.title}</td><td style="font-size:12px; color:var(--text-muted);">${t.time}</td><td>${statusHtml}</td><td>${btnStop}</td></tr>`; 
+                if(t.type.includes("VOD")) { tbVOD.innerHTML += row; vC++; } else { tbLive.innerHTML += row; lC++; } 
+            }); 
+            if(vC === 0) tbVOD.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:20px;">Tidak ada antrean VOD.</td></tr>'; 
+            if(lC === 0) tbLive.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:20px;">Tidak ada Live Stream yang berjalan.</td></tr>'; 
+            lastServerData.history.forEach(t => { let c = t.status.includes('❌') ? 'var(--danger)' : 'var(--text-muted)'; tbH.innerHTML += `<tr><td><span style="font-weight:700; color:var(--text-muted);">#${t.id}</span></td><td><span style="background:var(--bg-main); padding:4px 8px; border-radius:4px; font-size:11px; font-weight:700;">${t.type}</span></td><td style="font-weight:700;">${t.title}</td><td style="color:${c}; font-weight:600;">${t.status}</td></tr>`; }); 
+            document.getElementById('tm_channels').innerText = cachedChannels.length; document.getElementById('tm_active').innerText = lastServerData.active.length + browserQueue.length; document.getElementById('tm_history').innerText = lastServerData.history.length; 
+        }
+        function stopTask(id) { if(confirm("Hentikan tugas ini secara paksa?")) { fetch('/api/stop_task/' + id, {method:'POST'}).then(r=>r.json()).then(d=>{ alert(d.message); fetchDataFromServer(); }); } }
+        function clearHistory() { if(confirm("Bersihkan riwayat?")) { fetch('/api/clear_history', { method: 'POST' }).then(r => r.json()).then(d => { alert(d.message); fetchDataFromServer(); }); } }
+
+        // --- VISUALIZER GENERATOR ---
+        function injectVisualizer(cId, mode) { 
+            document.getElementById(cId).innerHTML = `
+            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:15px; gap:10px;">
+                <span style="color:var(--text-main); font-weight:800; font-size:15px;">🎨 Visualizer Settings</span>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="${mode}_preset_select" style="margin:0; padding:8px 12px; font-size:12px; border-radius:6px; width:150px;" onchange="applyPreset('${mode}', this.value)"><option value="">-- Presets --</option></select>
+                    <button type="button" class="btn-small" style="background:var(--primary); color:white; border:none; font-weight:700;" onclick="saveToLocal('${mode}')">Simpan</button>
+                    <button type="button" class="btn-small" style="color:var(--danger); border-color:var(--danger);" onclick="deleteLocalPreset('${mode}')">Hapus</button>
+                    <span style="color:var(--border); margin:0 5px;">|</span>
+                    <button type="button" class="btn-small" onclick="loadPresetFile('${mode}')">Import JSON</button>
+                    <button type="button" class="btn-small" onclick="savePresetFile('${mode}')">Export</button>
+                </div>
+            </div>
+            <div class="grid-3" style="margin-bottom:15px;">
+                <div class="slider-group"><label>Base Color</label><input type="color" id="${mode}_color_bot" name="color_bot" value="#10b981" style="height:35px; border:none; border-radius:8px; padding:0;"></div>
+                <div class="slider-group"><label>Peak Color</label><input type="color" id="${mode}_color_top" name="color_top" value="#0ea5e9" style="height:35px; border:none; border-radius:8px; padding:0;"></div>
+                <div class="slider-group"><label>Part Color</label><input type="color" id="${mode}_color_part" name="color_part" value="#ffffff" style="height:35px; border:none; border-radius:8px; padding:0;"></div>
+            </div>
+            <div class="grid-3">
+                <div class="slider-group"><label>X Pos <span class="val-badge" id="v_${mode}_px">50%</span></label><input type="range" id="${mode}_pos_x" name="pos_x" min="0" max="100" value="50" oninput="uVal('v_${mode}_px',this.value,'%')"></div>
+                <div class="slider-group"><label>Y Pos <span class="val-badge" id="v_${mode}_py">85%</span></label><input type="range" id="${mode}_pos_y" name="pos_y" min="0" max="100" value="85" oninput="uVal('v_${mode}_py',this.value,'%')"></div>
+                <div class="slider-group"><label>Width <span class="val-badge" id="v_${mode}_wp">60%</span></label><input type="range" id="${mode}_width_pct" name="width_pct" min="10" max="100" value="60" oninput="uVal('v_${mode}_wp',this.value,'%')"></div>
+                <div class="slider-group"><label>Limit <span class="val-badge" id="v_${mode}_mh">40%</span></label><input type="range" id="${mode}_max_height" name="max_height" min="10" max="100" value="40" oninput="uVal('v_${mode}_mh',this.value,'%')"></div>
+                <div class="slider-group"><label>Idle <span class="val-badge" id="v_${mode}_ih">5px</span></label><input type="range" id="${mode}_idle_height" name="idle_height" min="0" max="50" value="5" oninput="uVal('v_${mode}_ih',this.value,'px')"></div>
+                <div class="slider-group"><label>Density <span class="val-badge" id="v_${mode}_bc">64</span></label><input type="range" id="${mode}_bar_count" name="bar_count" min="10" max="200" value="64" oninput="uVal('v_${mode}_bc',this.value,'')"></div>
+                <div class="slider-group"><label>React <span class="val-badge" id="v_${mode}_r">0.66x</span></label><input type="range" id="${mode}_reactivity" name="reactivity" min="0.1" max="4.0" step="0.01" value="0.66" oninput="uVal('v_${mode}_r',this.value,'x')"></div>
+                <div class="slider-group"><label>Gravity <span class="val-badge" id="v_${mode}_g">0.08</span></label><input type="range" id="${mode}_gravity" name="gravity" min="0.01" max="0.50" step="0.01" value="0.08" oninput="uVal('v_${mode}_g',this.value,'')"></div>
+                <div class="slider-group"><label>Gap <span class="val-badge" id="v_${mode}_sp">3px</span></label><input type="range" id="${mode}_spacing" name="spacing" min="0" max="20" value="3" oninput="uVal('v_${mode}_sp',this.value,'px')"></div>
+                <div class="slider-group"><label>Part Amount <span class="val-badge" id="v_${mode}_pa">3</span></label><input type="range" id="${mode}_part_amount" name="part_amount" min="0" max="300" value="3" oninput="uVal('v_${mode}_pa',this.value,'')"></div>
+                <div class="slider-group"><label>Part Speed <span class="val-badge" id="v_${mode}_ps">1.0x</span></label><input type="range" id="${mode}_part_speed" name="part_speed" min="0.1" max="5.0" step="0.1" value="1.0" oninput="uVal('v_${mode}_ps',this.value,'x')"></div>
+            </div>
+            <button type="button" id="btn_preview_${mode}" onclick="jalankanPreview('${mode}')" class="btn-small" style="width:100%; margin-top:20px; padding:12px; font-weight:700;">👀 Lihat Preview 5 Detik</button>
+            `; 
         }
 
-        // --- VISUALIZER & CHART (SIMPLIFIED) ---
-        function injectVisualizer(id, mode) { document.getElementById(id).innerHTML = `<div class="grid-3" style="margin-top:20px;"><div class="slider-group"><label>Base Color</label><input type="color" name="color_bot" value="#10b981"></div><div class="slider-group"><label>X Pos</label><input type="range" name="pos_x" min="0" max="100" value="50"></div><div class="slider-group"><label>Density</label><input type="range" name="bar_count" min="10" max="150" value="64"></div></div>`; }
-        function fetchAnalyticsData() { fetch('/api/get_youtube_analytics').then(r=>r.json()).then(d=>{ analyticsData = d; renderAnalytics(); }); }
-        function renderAnalytics() {
-            let tV=0, tS=0, tW=0; analyticsData.forEach(d=>{ tV+=d.views; tS+=d.subs; tW+=d.watch_hours; });
-            document.getElementById('st_views').innerText = tV.toLocaleString(); document.getElementById('st_subs').innerText = tS.toLocaleString(); document.getElementById('st_watch').innerText = tW.toLocaleString();
+        function jalankanPreview(mode) {
+            let form = document.getElementById(mode === 'vod' ? 'formUpload' : 'formLive'); let formData = new FormData(form);
+            if(formData.getAll('audios')[0].size === 0 || formData.getAll('background')[0].size === 0) return alert("Pilih file Audio & Background dulu!");
+            let btn = document.getElementById('btn_preview_' + mode); let oldText = btn.innerHTML;
+            btn.innerHTML = "⏳ Merender Preview..."; btn.disabled = true;
+
+            fetch('/api/preview_visualizer', { method: 'POST', body: formData }).then(r => r.json()).then(d => {
+                btn.innerHTML = oldText; btn.disabled = false;
+                if(d.status === 'success') {
+                    let modal = document.getElementById('previewModal');
+                    if(!modal) {
+                        modal = document.createElement('div'); modal.id = 'previewModal';
+                        modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); z-index:9999; display:flex; justify-content:center; align-items:center;";
+                        modal.innerHTML = `<div style="background:var(--bg-panel); padding:30px; border-radius:24px; box-shadow:0 20px 50px rgba(0,0,0,0.1); text-align:center; max-width:800px; width:90%;"><h3 style="margin-top:0; color:var(--text-main); font-weight:800;">Hasil Preview</h3><video id="previewVideo" width="100%" controls autoplay style="border-radius:12px; border:1px solid var(--border); box-shadow:0 10px 20px rgba(0,0,0,0.05);"></video><br><button onclick="document.getElementById('previewModal').style.display='none'; document.getElementById('previewVideo').pause();" class="btn-small" style="margin-top:20px; padding:10px 30px; background:var(--primary); color:white; border:none; font-weight:700;">Tutup</button></div>`;
+                        document.body.appendChild(modal);
+                    }
+                    modal.style.display = 'flex'; let vid = document.getElementById('previewVideo'); vid.src = d.preview_url; vid.play();
+                } else { alert("Gagal: " + d.message); }
+            }).catch(e => { btn.innerHTML = oldText; btn.disabled = false; });
         }
+
+        function hexToRgb(h) { let b = parseInt(h.replace('#', ''), 16); return [(b >> 16) & 255, (b >> 8) & 255, b & 255]; } 
+        function rgbToHex(r, g, b) { return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase(); }
+        function getPresetObject(mode) { return { colors: { bot: hexToRgb(document.getElementById(`${mode}_color_bot`).value), top: hexToRgb(document.getElementById(`${mode}_color_top`).value), part: hexToRgb(document.getElementById(`${mode}_color_part`).value) }, sliders: { pos_x: document.getElementById(`${mode}_pos_x`).value / 100, pos_y: document.getElementById(`${mode}_pos_y`).value / 100, spec_width: document.getElementById(`${mode}_width_pct`).value / 100, height_limit: document.getElementById(`${mode}_max_height`).value / 100, min_height: parseFloat(document.getElementById(`${mode}_idle_height`).value), reactivity: parseFloat(document.getElementById(`${mode}_reactivity`).value), fall_speed: parseFloat(document.getElementById(`${mode}_gravity`).value), bar_count: parseFloat(document.getElementById(`${mode}_bar_count`).value), bar_gap: parseFloat(document.getElementById(`${mode}_spacing`).value), part_density: parseFloat(document.getElementById(`${mode}_part_amount`).value), part_speed: parseFloat(document.getElementById(`${mode}_part_speed`).value) } }; }
+        function saveToLocal(mode) { let n = prompt("Nama Preset:"); if(!n) return; let p = JSON.parse(localStorage.getItem('keibot_presets') || '{}'); p[n] = getPresetObject(mode); localStorage.setItem('keibot_presets', JSON.stringify(p)); refreshPresetDropdowns(); document.getElementById(`${mode}_preset_select`).value = n; }
+        function deleteLocalPreset(mode) { let n = document.getElementById(`${mode}_preset_select`).value; if(!n) return; if(confirm("Hapus?")) { let p = JSON.parse(localStorage.getItem('keibot_presets') || '{}'); delete p[n]; localStorage.setItem('keibot_presets', JSON.stringify(p)); refreshPresetDropdowns(); } }
+        function refreshPresetDropdowns() { let p = JSON.parse(localStorage.getItem('keibot_presets') || '{}'); let opt = '<option value="">-- Presets --</option>'; for(let k in p) opt += `<option value="${k}">${k}</option>`; let vS = document.getElementById('vod_preset_select'); let lS = document.getElementById('live_preset_select'); if(vS){ let v = vS.value; vS.innerHTML = opt; if(p[v]) vS.value = v; } if(lS){ let v = lS.value; lS.innerHTML = opt; if(p[v]) lS.value = v; } }
+        function applyPreset(mode, name) { if(!name) return; let p = JSON.parse(localStorage.getItem('keibot_presets') || '{}')[name]; if(p) eksekusiPresetKeLayar(mode, p); }
+        function savePresetFile(mode) { const p = getPresetObject(mode); const dl = document.createElement('a'); dl.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(p, null, 4))); dl.setAttribute("download", `KeiBot_${mode}.json`); dl.click(); }
+        function loadPresetFile(mode) { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json'; inp.onchange = e => { const r = new FileReader(); r.onload = ev => { try { eksekusiPresetKeLayar(mode, JSON.parse(ev.target.result)); document.getElementById(`${mode}_preset_select`).value = ""; } catch(err) { alert("File Rusak!"); } }; r.readAsText(e.target.files[0]); }; inp.click(); }
+        function eksekusiPresetKeLayar(mode, p) { document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]); document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]); document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]); document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100; document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100; document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100; document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100; document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height; document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity; document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed; document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count; document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap; document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density; document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed; document.querySelectorAll(`#${mode} input[type=range]`).forEach(el => el.dispatchEvent(new Event('input'))); }
+        function uVal(id,v,s) { document.getElementById(id).innerText = v+s; }
+
+        function initApp() { injectVisualizer('visVod', 'vod'); injectVisualizer('visLive', 'live'); loadChannels(); fetchAnalyticsData(); checkApiStatus(); setInterval(fetchDataFromServer, 2000); refreshPresetDropdowns(); }
     </script>
+    
+    <div style="position: fixed; bottom: 25px; right: 25px; background: #ffffff; border: 1px solid var(--border); padding: 15px 20px; border-radius: 12px; font-family: 'Segoe UI'; font-size: 13px; z-index: 9999; box-shadow: var(--shadow-hover); display:flex; gap:20px; align-items:center;">
+        <div><span style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block;">CPU Load</span><span id="sys-cpu" style="font-weight:800; font-size:16px; color:var(--text-main);">0%</span></div>
+        <div style="width:1px; height:30px; background:var(--border);"></div>
+        <div><span style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block;">RAM Usage</span><span id="sys-ram-pct" style="font-weight:800; font-size:16px; color:var(--primary);">0%</span><span id="sys-ram-text" style="color:var(--text-muted); font-size:11px; margin-left:5px;">0/0GB</span></div>
+    </div>
+    <script> setInterval(() => { fetch('/api/get_dashboard_stats').then(r => r.json()).then(d => { if(d.sys_cpu !== undefined) { document.getElementById('sys-cpu').innerText = d.sys_cpu + '%'; document.getElementById('sys-ram-pct').innerText = d.sys_ram_pct + '%'; document.getElementById('sys-ram-text').innerText = d.sys_ram_text; } }).catch(e => {}); }, 3000); </script>
 </body>
 </html>
