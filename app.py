@@ -16,7 +16,7 @@ import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 # ==========================================
-# 🛡️ AUTO-SETUP DEPENDENCIES & MONITORING MURNI
+# 🛡️ AUTO-SETUP DEPENDENCIES
 # ==========================================
 def auto_setup_dependencies():
     if not os.path.exists("/usr/bin/ffmpeg") and shutil.which("ffmpeg") is None:
@@ -65,7 +65,7 @@ def get_system_stats():
     return {"cpu": cpu_pct, "ram_pct": 0.0, "ram_used": 0.0, "ram_total": 0.0}
 
 # ==========================================
-# 💾 PERSISTENCE ENGINE (DATABASE TUGAS)
+# 💾 DATABASE ENGINE
 # ==========================================
 DB_FILE = 'channels_db.json'
 TASKS_FILE = 'tasks_db.json'
@@ -88,7 +88,7 @@ active_tasks = task_data.get("active", [])
 history_tasks = task_data.get("history", [])
 
 # ==========================================
-# 🚦 SISTEM PENJAGA GERBANG RAM (ANTI-CRASH)
+# 🚦 RAM GATEKEEPER
 # ==========================================
 def wait_for_resources(task_id, max_ram_pct=85.0):
     while True:
@@ -101,7 +101,7 @@ def wait_for_resources(task_id, max_ram_pct=85.0):
         time.sleep(10)
 
 # ==========================================
-# ⚙️ INIT FLASK & GOOGLE API
+# ⚙️ INIT FLASK & CORE ENGINE
 # ==========================================
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
@@ -114,12 +114,7 @@ os.makedirs('static', exist_ok=True)
 
 def load_channels():
     if os.path.exists(DB_FILE):
-        with open(DB_FILE, 'r') as f:
-            channels = json.load(f)
-            for c in channels:
-                if 'stream_keys' in c and len(c['stream_keys']) > 0 and isinstance(c['stream_keys'][0], str):
-                    c['stream_keys'] = [{"name": f"Key {i+1}", "key": k} for i, k in enumerate(c['stream_keys'])]
-            return channels
+        with open(DB_FILE, 'r') as f: return json.load(f)
     return []
 
 def save_channels(channels):
@@ -143,9 +138,6 @@ def move_to_history(task_id, final_status):
             save_tasks_db()
             break
 
-# ==========================================
-# ⚙️ CORE ENGINE (VISUALIZER & FFMPEG)
-# ==========================================
 class AudioBrain:
     def __init__(self): self.y = None; self.sr = None; self.duration = 0.0
     def load(self, path, max_duration=None):
@@ -190,16 +182,11 @@ class VisualEngine:
         def safe_num(val, default):
             try: return float(val) if val != "" and val is not None else default
             except: return default
-        react = safe_num(cfg.get('reactivity'), 0.66)
-        grav = safe_num(cfg.get('gravity'), 0.08)
-        idle = int(safe_num(cfg.get('idle_height'), 5))
-        space = int(safe_num(cfg.get('spacing'), 3))
-        px = safe_num(cfg.get('pos_x'), 50)/100
-        py = safe_num(cfg.get('pos_y'), 85)/100
-        wp = safe_num(cfg.get('width_pct'), 60)/100
-        max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
-        p_amt = int(safe_num(cfg.get('part_amount'), 3))
-        p_spd = safe_num(cfg.get('part_speed'), 1.0)
+        react = safe_num(cfg.get('reactivity'), 0.66); grav = safe_num(cfg.get('gravity'), 0.08)
+        idle = int(safe_num(cfg.get('idle_height'), 5)); space = int(safe_num(cfg.get('spacing'), 3))
+        px = safe_num(cfg.get('pos_x'), 50)/100; py = safe_num(cfg.get('pos_y'), 85)/100
+        wp = safe_num(cfg.get('width_pct'), 60)/100; max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
+        p_amt = int(safe_num(cfg.get('part_amount'), 3)); p_spd = safe_num(cfg.get('part_speed'), 1.0)
         for i in range(n):
             if bars[i] > self.bar_h[i]: self.bar_h[i] = self.bar_h[i]*0.2 + bars[i]*0.8
             else: self.bar_h[i] = max(0, self.bar_h[i] - grav)
@@ -223,8 +210,7 @@ def hex_to_rgb(h): return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)
 def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
     w, h = 1280, 720; fps = 30; total_f = int(duration * fps)
     vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part')))
-    bg = BackgroundManager(bg_paths, w, h)
-    audio = AudioBrain(); audio.load(audio_path)
+    bg = BackgroundManager(bg_paths, w, h); audio = AudioBrain(); audio.load(audio_path)
     cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-', '-i', audio_path, '-t', str(duration), '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p', output_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for f in range(total_f):
@@ -238,38 +224,34 @@ def background_worker():
         try:
             if not wait_for_resources(task_id): raise Exception("RAM Kepenuhan")
             for d in active_tasks:
-                if d['id'] == task_id: d['status'] = "Menyiapkan Base Audio ⚙️"
+                if d['id'] == task_id: d['status'] = "Menyiapkan Audio ⚙️"
             save_tasks_db()
             
             base_audio = f"uploads/base_a_{task_id}.mp3"; c_txt = f"uploads/c_{task_id}.txt"
             with open(c_txt, 'w', encoding='utf-8') as f:
                 for ap in task['audio_paths']:
-                    # 🩹 FIX: Hapus f-string yang ada backslashnya
-                    safe_path = os.path.abspath(ap).replace('\\', '/')
-                    f.write(f"file '{safe_path}'\n")
+                    safe_p = os.path.abspath(ap).replace('\\', '/')
+                    f.write(f"file '{safe_p}'\n")
             subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio])
             
             audio = AudioBrain(); audio.load(base_audio); base_dur = audio.duration if audio.duration > 0 else 10
             base_video = f"uploads/base_v_{task_id}.mp4"
             
-            if stop_flags.get(task_id): raise Exception("Dibatalkan")
             for d in active_tasks:
-                if d['id'] == task_id: d['status'] = "Rendering Base Video ⚡"
+                if d['id'] == task_id: d['status'] = "Rendering Video ⚡"
             save_tasks_db()
             render_video_core(base_audio, task['bg_paths'], base_video, base_dur, task['vis'])
             
-            if stop_flags.get(task_id): raise Exception("Dibatalkan")
             loop_count = int(task.get('loop_count', 1)); out_file = f"static/out_{task_id}.mp4"
             if loop_count > 1:
                 for d in active_tasks:
-                    if d['id'] == task_id: d['status'] = f"Menggandakan Video {loop_count}x 🚀"
+                    if d['id'] == task_id: d['status'] = f"Menggandakan {loop_count}x 🚀"
                 save_tasks_db()
                 loop_txt = f"uploads/loop_{task_id}.txt"
                 with open(loop_txt, 'w', encoding='utf-8') as f:
                     for _ in range(loop_count):
-                        # 🩹 FIX: Hapus f-string yang ada backslashnya
-                        safe_path_vid = os.path.abspath(base_video).replace('\\', '/')
-                        f.write(f"file '{safe_path_vid}'\n")
+                        safe_bv = os.path.abspath(base_video).replace('\\', '/')
+                        f.write(f"file '{safe_bv}'\n")
                 subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', loop_txt, '-c', 'copy', out_file])
             else: shutil.copy(base_video, out_file)
 
@@ -279,9 +261,8 @@ def background_worker():
                 tags_list = [t.strip() for t in meta['tags'].split(',')] if meta['tags'] else []
                 sch_raw = meta.get('schedule', ''); sch_obj = datetime.strptime(sch_raw.replace(' ', 'T'), "%Y-%m-%dT%H:%M") if sch_raw else datetime.now()
                 
-                pilihan_privasi = meta.get('privacy', 'public')
                 body = {'snippet': {'title': meta['title'], 'description': meta['description'], 'tags': tags_list, 'categoryId': '10'}, 
-                        'status': {'privacyStatus': pilihan_privasi}}
+                        'status': {'privacyStatus': meta.get('privacy', 'public')}}
                 
                 if sch_obj > datetime.now():
                     sch_utc = sch_obj - dt.timedelta(hours=7)
@@ -292,29 +273,17 @@ def background_worker():
                 req = youtube.videos().insert(part=','.join(body.keys()), body=body, media_body=media)
                 resp = None
                 while resp is None:
-                    if stop_flags.get(task_id): raise Exception("Dibatalkan")
                     status, resp = req.next_chunk()
                     if status:
                         for d in active_tasks:
-                            if d['id'] == task_id: d['status'] = f"Mengunggah... {int(status.progress()*100)}% 🚀"
+                            if d['id'] == task_id: d['status'] = f"Mengunggah {int(status.progress()*100)}% 🚀"
                         save_tasks_db()
                 
                 video_id = resp.get('id')
-                try:
-                    if meta.get('thumbnail_path') and os.path.exists(meta['thumbnail_path']):
-                        for d in active_tasks:
-                            if d['id'] == task_id: d['status'] = "Memasang Thumbnail... 🖼️"
-                        save_tasks_db()
-                        youtube.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(meta['thumbnail_path'])).execute()
-                except: pass
-                
-                try:
-                    if meta.get('playlist_id'):
-                        for d in active_tasks:
-                            if d['id'] == task_id: d['status'] = "Menyimpan ke Playlist... 🗂️"
-                        save_tasks_db()
-                        youtube.playlistItems().insert(part='snippet', body={'snippet': {'playlistId': meta['playlist_id'], 'resourceId': {'kind': 'youtube#video', 'videoId': video_id}}}).execute()
-                except: pass
+                if meta.get('thumbnail_path') and os.path.exists(meta['thumbnail_path']):
+                    youtube.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(meta['thumbnail_path'])).execute()
+                if meta.get('playlist_id'):
+                    youtube.playlistItems().insert(part='snippet', body={'snippet': {'playlistId': meta['playlist_id'], 'resourceId': {'kind': 'youtube#video', 'videoId': video_id}}}).execute()
                 
                 move_to_history(task_id, f"Tayang! ✅ <a href='https://youtu.be/{video_id}' target='_blank'>[Lihat]</a>")
             else: move_to_history(task_id, f"Render Selesai ✅ <a href='/{out_file}' target='_blank'>[Download]</a>")
@@ -329,31 +298,20 @@ threading.Thread(target=background_worker, daemon=True).start()
 def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, end_time_str, cfg, metadata):
     try:
         if not wait_for_resources(task_id): raise Exception("RAM Kepenuhan")
-        
-        for d in active_tasks:
-            if d['id'] == task_id: d['status'] = "Menyiapkan Playlist Audio ⚙️"
-        save_tasks_db()
-        
         m_audio = f"uploads/live_{task_id}/m.mp3"; c_txt = f"uploads/live_{task_id}/c.txt"
         os.makedirs(f"uploads/live_{task_id}", exist_ok=True)
-        with open(c_txt, 'w') as f:
+        with open(c_txt, 'w', encoding='utf-8') as f:
             for ap in audio_paths:
-                # 🩹 FIX: Hapus f-string yang ada backslashnya
-                safe_path_live = os.path.abspath(ap).replace('\\', '/')
-                f.write(f"file '{safe_path_live}'\n")
+                safe_pl = os.path.abspath(ap).replace('\\', '/')
+                f.write(f"file '{safe_pl}'\n")
         subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', m_audio])
         
         start_obj = datetime.strptime(start_time_str.replace('T', ' '), "%Y-%m-%d %H:%M")
         while datetime.now() < start_obj:
             if stop_flags.get(task_id): raise Exception("Dibatalkan")
             for d in active_tasks:
-                if d['id'] == task_id: d['status'] = f"Menunggu Jadwal Mulai ⏳ ({start_time_str})"
-            save_tasks_db()
-            time.sleep(5)
-
-        for d in active_tasks:
-            if d['id'] == task_id: d['status'] = "Memperbarui Metadata Live... 📡"
-        save_tasks_db()
+                if d['id'] == task_id: d['status'] = f"Menunggu Jadwal ⏳ ({start_time_str})"
+            save_tasks_db(); time.sleep(10)
 
         channel_data = next((c for c in database_channel if c['yt_id'] == metadata['channel_yt_id']), None)
         if channel_data:
@@ -361,19 +319,13 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
                 creds = Credentials.from_authorized_user_info(json.loads(channel_data['creds_json'])); youtube = build('youtube', 'v3', credentials=creds)
                 live_res = youtube.liveBroadcasts().list(part="snippet,status", broadcastStatus="active", broadcastType="all").execute()
                 if not live_res.get('items'): live_res = youtube.liveBroadcasts().list(part="snippet,status", broadcastStatus="upcoming", broadcastType="all").execute()
-                
                 if live_res.get('items'):
                     b_id = live_res['items'][0]['id']
                     v_snip = live_res['items'][0]['snippet']
                     v_stat = live_res['items'][0]['status']
-                    
-                    v_snip['title'] = metadata['title']
-                    v_snip['description'] = metadata['description']
+                    v_snip['title'] = metadata['title']; v_snip['description'] = metadata['description']
                     v_stat['privacyStatus'] = metadata.get('privacy', 'public')
-                    
                     youtube.videos().update(part="snippet,status", body={"id": b_id, "snippet": v_snip, "status": v_stat}).execute()
-                    if metadata.get('thumbnail_path') and os.path.exists(metadata['thumbnail_path']):
-                        youtube.thumbnails().set(videoId=b_id, media_body=MediaFileUpload(metadata['thumbnail_path'])).execute()
             except Exception as e: print("Live API Metadata Error:", e) 
 
         for d in active_tasks:
@@ -382,25 +334,21 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
 
         rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
         vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part')))
-        bg = BackgroundManager(bg_paths, 1280, 720)
-        audio = AudioBrain(); audio.load(m_audio, max_duration=600)
+        bg = BackgroundManager(bg_paths, 1280, 720); audio = AudioBrain(); audio.load(m_audio, max_duration=600)
         
-        cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', '1280x720', '-pix_fmt', 'bgr24', '-r', '30', '-i', '-', '-stream_loop', '-1', '-i', m_audio, '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '2500k', '-maxrate', '2500k', '-bufsize', '5000k', '-pix_fmt', 'yuv420p', '-g', '60', '-c:a', 'aac', '-b:a', '128k', '-f', 'flv', rtmp_url]
+        cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', '1280x720', '-pix_fmt', 'bgr24', '-r', '30', '-i', '-', '-stream_loop', '-1', '-i', m_audio, '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '2500k', '-f', 'flv', rtmp_url]
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE); live_threads[task_id] = proc
         
         f_idx = 0; end_obj = datetime.strptime(end_time_str.replace('T', ' '), "%Y-%m-%d %H:%M")
-        while True:
-            if stop_flags.get(task_id) or datetime.now() >= end_obj: break
+        while not stop_flags.get(task_id) and datetime.now() < end_obj:
             v, _, bars = audio.get_data((f_idx/30) % audio.duration if audio.duration > 0 else 0, int(cfg.get('bar_count', 64)))
             proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg).tobytes()); f_idx += 1
             
-        proc.terminate(); bg.close(); shutil.rmtree(f"uploads/live_{task_id}", ignore_errors=True); active_stream_keys.discard(stream_key)
-        if stop_flags.get(task_id): move_to_history(task_id, "Dihentikan Paksa ⏹️")
-        else: move_to_history(task_id, "Live Selesai 🧹")
+        proc.terminate(); bg.close(); active_stream_keys.discard(stream_key)
+        move_to_history(task_id, "Live Selesai 🧹")
     except Exception as e:
         active_stream_keys.discard(stream_key)
-        move_to_history(task_id, f"Live Gagal ❌ (Detail: {str(e)})")
-
+        move_to_history(task_id, f"Gagal ❌ ({str(e)})")
 
 # ==========================================
 # 📊 API ENDPOINTS
@@ -411,269 +359,71 @@ def index(): return render_template('index.html')
 @app.route('/api/get_dashboard_stats')
 def get_dashboard_stats():
     sys = get_system_stats()
-    return jsonify({
-        "channels": len(database_channel), "active_tasks": len(active_tasks), "history_tasks": len(history_tasks),
-        "sys_cpu": sys["cpu"], "sys_ram_pct": sys["ram_pct"], "sys_ram_text": f"{sys['ram_used']}GB / {sys['ram_total']}GB"
-    })
+    return jsonify({"channels": len(database_channel), "active_tasks": len(active_tasks), "history_tasks": len(history_tasks),
+                    "sys_cpu": sys["cpu"], "sys_ram_pct": sys["ram_pct"], "sys_ram_text": f"{sys['ram_used']}GB / {sys['ram_total']}GB"})
 
 @app.route('/api/get_schedule')
 def get_schedule(): return jsonify({"active": active_tasks, "history": history_tasks})
 
 @app.route('/api/clear_history', methods=['POST'])
 def clear_history():
-    global history_tasks
-    history_tasks = []
-    save_tasks_db()
-    return jsonify({"status": "success", "message": "Riwayat berhasil dibersihkan!"})
+    global history_tasks; history_tasks = []; save_tasks_db()
+    return jsonify({"status": "success", "message": "Riwayat dibersihkan!"})
 
 @app.route('/api/get_channels')
 def get_channels():
-    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], "stream_keys": c.get("stream_keys", [])} for c in database_channel]
+    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], 
+               "stream_keys": c.get("stream_keys", []), "title_bank": c.get("title_bank", [])} for c in database_channel]
     return jsonify(safe_c)
 
 @app.route('/api/delete_channel', methods=['POST'])
 def delete_channel():
-    yt_id = request.form.get('yt_id')
-    global database_channel
-    database_channel = [c for c in database_channel if c['yt_id'] != yt_id]
-    save_channels(database_channel)
-    return jsonify({"status": "success", "message": "Channel berhasil dihapus dari sistem KeiBot!"})
+    yt_id = request.form.get('yt_id'); global database_channel
+    database_channel = [c for c in database_channel if c['yt_id'] != yt_id]; save_channels(database_channel)
+    return jsonify({"status": "success", "message": "Channel dihapus!"})
 
-@app.route('/api/stop_task/<int:task_id>', methods=['POST'])
-def stop_task(task_id):
-    stop_flags[task_id] = True
-    if task_id in live_threads:
-        try: live_threads[task_id].terminate()
-        except: pass
-    return jsonify({"status": "success", "message": "Dihentikan!"})
-
-@app.route('/api/preview_visualizer', methods=['POST'])
-def preview_visualizer():
+@app.route('/api/upload_title_bank', methods=['POST'])
+def upload_title_bank():
+    yt_id = request.form.get('yt_id'); file = request.files.get('txt_file')
+    if not yt_id or not file: return jsonify({"status": "error", "message": "Bahan kurang!"})
     try:
-        audios = request.files.getlist('audios'); bgs = request.files.getlist('background'); a_p = "uploads/p.mp3"; v_p = "uploads/p_bg" + os.path.splitext(bgs[0].filename)[1]; audios[0].save(a_p); bgs[0].save(v_p)
-        render_video_core(a_p, [v_p], "static/p.mp4", 5.0, request.form)
-        return jsonify({"status": "success", "preview_url": "/static/p.mp4?t="+str(time.time())})
+        lines = [l.strip() for l in file.read().decode('utf-8').split('\n') if l.strip()]
+        global database_channel
+        for c in database_channel:
+            if c['yt_id'] == yt_id: c['title_bank'] = lines; save_channels(database_channel); return jsonify({"status": "success", "message": f"Tersimpan {len(lines)} judul!"})
+        return jsonify({"status": "error", "message": "Channel tidak ketemu."})
     except Exception as e: return jsonify({"status": "error", "message": str(e)})
-
-@app.route('/api/save_stream_key', methods=['POST'])
-def save_stream_key():
-    yt_id = request.form.get('yt_id'); keys_json = request.form.get('stream_keys')
-    try: keys_list = json.loads(keys_json)
-    except: keys_list = []
-    for c in database_channel:
-        if c['yt_id'] == yt_id: c['stream_keys'] = keys_list; save_channels(database_channel); return jsonify({"status": "success", "message": "Stream Key diperbarui!"})
-    return jsonify({"status": "error", "message": "Channel tidak ditemukan."})
-
-@app.route('/api/get_playlists', methods=['GET'])
-def get_playlists():
-    yt_id = request.args.get('yt_id')
-    if not yt_id: return jsonify([])
-    channel = next((c for c in database_channel if c['yt_id'] == yt_id), None)
-    if not channel or 'creds_json' not in channel: return jsonify([])
-    try:
-        creds = Credentials.from_authorized_user_info(json.loads(channel['creds_json'])); youtube = build('youtube', 'v3', credentials=creds)
-        res = youtube.playlists().list(part="snippet", mine=True, maxResults=50).execute()
-        return jsonify([{"id": p['id'], "title": p['snippet']['title']} for p in res.get('items', [])])
-    except: return jsonify([])
-
-@app.route('/api/get_youtube_analytics')
-def get_youtube_analytics():
-    stats_data = []
-    for c in database_channel:
-        try:
-            creds = Credentials.from_authorized_user_info(json.loads(c['creds_json'])); youtube = build('youtube', 'v3', credentials=creds)
-            res = youtube.channels().list(part="statistics", mine=True).execute()
-            if res['items']:
-                stat = res['items'][0]['statistics']; views = int(stat.get('viewCount', 0)); est_watch_hours = int((views * 3) / 60) 
-                stats_data.append({"yt_id": c['yt_id'], "name": c['name'], "thumbnail": c['thumbnail'], "subs": int(stat.get('subscriberCount', 0)), "views": views, "videos": int(stat.get('videoCount', 0)), "watch_hours": est_watch_hours})
-        except: pass
-    return jsonify(stats_data)
 
 @app.route('/api/upload_vod', methods=['POST'])
 def handle_upload_vod():
     t_id = int(time.time()); audios = request.files.getlist('audios'); bgs = request.files.getlist('background'); a_ps = []; v_ps = []
-    for i, a in enumerate(audios): 
-        if a.filename: p = f"uploads/vod_a_{t_id}_{i}.mp3"; a.save(p); a_ps.append(p)
-    for i, b in enumerate(bgs): 
-        if b.filename: p = f"uploads/vod_v_{t_id}_{i}{os.path.splitext(b.filename)[1]}"; b.save(p); v_ps.append(p)
-    thumb_file = request.files.get('thumbnail'); thumb_path = ""
-    if thumb_file and thumb_file.filename: thumb_path = f"uploads/vod_thumb_{t_id}{os.path.splitext(thumb_file.filename)[1]}"; thumb_file.save(thumb_path)
-
-    metadata = {
-        "channel_yt_id": request.form.get('channel_select', ''), 
-        "title": request.form.get('title', ''), 
-        "description": request.form.get('description', ''), 
-        "tags": request.form.get('tags', ''), 
-        "playlist_id": request.form.get('playlist', ''), 
-        "thumbnail_path": thumb_path, 
-        "schedule": request.form.get('schedule', ''),
-        "privacy": request.form.get('privacy', 'public')
-    }
+    for i, a in enumerate(audios): p = f"uploads/a_{t_id}_{i}.mp3"; a.save(p); a_ps.append(p)
+    for i, b in enumerate(bgs): p = f"uploads/b_{t_id}_{i}.mp4"; b.save(p); v_ps.append(p)
+    thumb = request.files.get('thumbnail'); t_path = ""
+    if thumb: t_path = f"uploads/t_{t_id}.jpg"; thumb.save(t_path)
     
-    sched_raw = request.form.get('schedule', '')
-    sched_str = sched_raw.replace('T', ' ') if sched_raw else "Langsung"
-    loop_count = int(request.form.get('loop_count', 1))
+    metadata = {"channel_yt_id": request.form.get('channel_select', ''), "title": request.form.get('title', ''), 
+                "description": request.form.get('description', ''), "tags": request.form.get('tags', ''), 
+                "playlist_id": request.form.get('playlist', ''), "thumbnail_path": t_path, 
+                "schedule": request.form.get('schedule', ''), "privacy": request.form.get('privacy', 'public')}
     
-    active_tasks.append({"id": t_id, "type": "📺 VOD", "title": metadata['title'], "time": sched_str, "status": "In Queue ⏳"})
-    save_tasks_db()
-    
-    form_data = dict(request.form) 
-    render_queue.put({"id": t_id, "audio_paths": a_ps, "bg_paths": v_ps, "vis": form_data, "loop_count": loop_count, "metadata": metadata})
-    
-    return jsonify({"status": "success", "message": "Masuk Antrean VOD!"})
+    active_tasks.append({"id": t_id, "type": "📺 VOD", "title": metadata['title'], "time": metadata['schedule'].replace('T',' ') if metadata['schedule'] else "Instan", "status": "In Queue ⏳"})
+    save_tasks_db(); render_queue.put({"id": t_id, "audio_paths": a_ps, "bg_paths": v_ps, "vis": dict(request.form), "loop_count": int(request.form.get('loop_count', 1)), "metadata": metadata})
+    return jsonify({"status": "success"})
 
 @app.route('/api/schedule_live', methods=['POST'])
 def handle_schedule_live():
-    stream_key = request.form.get('stream_key')
-    if not stream_key: return jsonify({"status": "error", "message": "Harap pilih Stream Key dari menu Dropdown!"})
-    if stream_key in active_stream_keys: return jsonify({"status": "error", "message": "Stream Key SEDANG DIPAKAI oleh tugas Live lain!"})
+    sk = request.form.get('stream_key'); yt_id = request.form.get('channel_select'); st = request.form.get('schedule_start'); et = request.form.get('schedule_end')
+    if not sk or not st: return jsonify({"status": "error", "message": "Lengkapi form!"})
     
-    sched_start = request.form.get('schedule_start', '')
-    sched_end = request.form.get('schedule_end', '')
-    if not sched_start or not sched_end: 
-        return jsonify({"status": "error", "message": "Jadwal Mulai dan Selesai WAJIB diisi untuk Live!"})
+    t_id = int(time.time()); audios = request.files.getlist('audios'); bgs = request.files.getlist('background'); a_ps = []; v_ps = []
+    for i, a in enumerate(audios): p = f"uploads/la_{t_id}_{i}.mp3"; a.save(p); a_ps.append(p)
+    for i, b in enumerate(bgs): p = f"uploads/lb_{t_id}_{i}.mp4"; b.save(p); v_ps.append(p)
 
-    active_stream_keys.add(stream_key)
-    yt_id = request.form.get('channel_select')
-    
-    t_id = int(time.time()); os.makedirs(f"uploads/live_{t_id}", exist_ok=True)
-    audios = request.files.getlist('audios'); bgs = request.files.getlist('background'); a_ps = []; v_ps = []
-    for i, a in enumerate(audios): 
-        if a.filename: p = f"uploads/live_{t_id}/a_{i}.mp3"; a.save(p); a_ps.append(p)
-    for i, b in enumerate(bgs): 
-        if b.filename: p = f"uploads/live_{t_id}/v_{i}{os.path.splitext(b.filename)[1]}"; b.save(p); v_ps.append(p)
-    thumb_file = request.files.get('thumbnail'); thumb_path = ""
-    if thumb_file and thumb_file.filename: thumb_path = f"uploads/live_{t_id}/thumb{os.path.splitext(thumb_file.filename)[1]}"; thumb_file.save(thumb_path)
-
-    metadata = {
-        "channel_yt_id": yt_id, 
-        "title": request.form.get('title', ''), 
-        "description": request.form.get('description', ''), 
-        "tags": request.form.get('tags', ''), 
-        "thumbnail_path": thumb_path,
-        "privacy": request.form.get('privacy', 'public')
-    }
-    
-    active_tasks.append({"id": t_id, "type": "🔴 LIVE", "title": metadata['title'], "time": f"Mulai: {sched_start.replace('T', ' ')}", "status": "In Queue ⏳"})
-    save_tasks_db()
-    
-    form_data = dict(request.form)
-    threading.Thread(target=run_live_stream, args=(t_id, stream_key, a_ps, v_ps, sched_start, sched_end, form_data, metadata)).start()
-    
-    return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
-
-# ==========================================
-# Google API Authentication Routes
-# ==========================================
-@app.route('/api/check_secret')
-def check_secret(): return jsonify({"exists": os.path.exists(CLIENT_SECRETS_FILE)})
-
-@app.route('/api/upload_secret', methods=['POST'])
-def upload_secret():
-    file = request.files.get('secret_file')
-    if file and file.filename.endswith('.json'):
-        file.save(CLIENT_SECRETS_FILE)
-        return jsonify({"status": "success", "message": "API Key Google berhasil diunggah!"})
-    return jsonify({"status": "error", "message": "Gagal! Pastikan file berekstensi .json"})
-
-@app.route('/api/generate_tv_link')
-def generate_tv_link():
-    if not os.path.exists(CLIENT_SECRETS_FILE): return jsonify({"auth_url": "", "error": "File client_secret.json belum diupload!"})
-    return jsonify({"auth_url": f"http://{request.host}/device_login"})
-
-@app.route('/device_login')
-def device_login():
-    if not os.path.exists(CLIENT_SECRETS_FILE): return "File rahasia tidak ditemukan!"
-    with open(CLIENT_SECRETS_FILE, 'r') as f:
-        secret_data = json.load(f); client_config = secret_data.get('installed', secret_data.get('web', {})); client_id = client_config.get('client_id')
-    res = requests.post('https://oauth2.googleapis.com/device/code', data={'client_id': client_id, 'scope': ' '.join(SCOPES)}).json()
-    if 'error' in res: return f"Error Google: {res['error']}"
-
-    html = f"""
-    <html><head><title>Aktivasi YouTube Multi-Profil</title>
-    <style>
-        body {{ font-family: 'Segoe UI', Arial; text-align: center; background: #eef2f6; color: #1e293b; padding-top: 10vh; }}
-        .box {{ background: #ffffff; width: 550px; margin: auto; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }}
-        .step {{ text-align: left; margin-bottom: 25px; font-size: 14px; color: #64748b; font-weight:600; }}
-        .input-group {{ display: flex; margin-top: 10px; }}
-        .input-group input {{ flex: 1; padding: 15px; font-size: 16px; font-weight: bold; background: #f8fafc; color: #10b981; border: 1px solid #e2e8f0; border-radius: 8px 0 0 8px; text-align: center; outline:none; }}
-        .input-group button {{ padding: 15px 25px; font-size: 14px; font-weight: bold; background: #10b981; color: white; border: none; border-radius: 0 8px 8px 0; cursor: pointer; transition: 0.3s; }}
-        .input-group button:hover {{ background: #059669; }}
-        .status {{ margin-top: 30px; font-size: 14px; color: #64748b; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-weight:600; }}
-    </style></head><body>
-        <div class="box">
-            <h2 style="color:#1e293b; margin-top:0;">🔗 Tautkan Channel Baru</h2>
-            <div class="step">
-                <b>Langkah 1:</b> Copy link ini dan <b>Paste di browser / profil Chrome</b> tempat Channel YouTube target Anda berada:
-                <div class="input-group">
-                    <input type="text" id="glink" value="{res['verification_url']}" readonly>
-                    <button onclick="copyTxt('glink', this)">📋 Copy Link</button>
-                </div>
-            </div>
-            <div class="step">
-                <b>Langkah 2:</b> Masukkan <b>Kode Rahasia</b> ini di halaman tersebut untuk mengizinkan akses:
-                <div class="input-group">
-                    <input type="text" id="gcode" value="{res['user_code']}" readonly>
-                    <button onclick="copyTxt('gcode', this)">📋 Copy Kode</button>
-                </div>
-            </div>
-            <div class="status" id="status">⏳ Menunggu Anda memasukkan kode di profil Chrome...</div>
-        </div>
-        <script>
-            function copyTxt(id, btn) {{
-                var copyText = document.getElementById(id); copyText.select(); document.execCommand("copy");
-                var oldTxt = btn.innerHTML; btn.innerHTML = "✅ Copied!"; btn.style.background = "#0ea5e9";
-                setTimeout(() => {{ btn.innerHTML = oldTxt; btn.style.background = "#10b981"; }}, 2000);
-            }}
-            function poll() {{
-                fetch('/api/poll_device_token', {{
-                    method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{device_code: '{res['device_code']}'}})
-                }}).then(r => r.json()).then(data => {{
-                    if(data.status === 'success') {{
-                        document.getElementById('status').innerHTML = "🎉 <b>Channel Berhasil Terhubung!</b> Mengalihkan...";
-                        document.getElementById('status').style.color = "#10b981"; document.getElementById('status').style.background = "rgba(16,185,129,0.1)"; document.getElementById('status').style.borderColor = "#10b981"; setTimeout(() => {{ window.location.href = '/'; }}, 2000);
-                    }} else if(data.status === 'pending') {{ setTimeout(poll, data.interval || 5000);
-                    }} else {{ document.getElementById('status').innerHTML = "❌ Gagal: " + data.error; }}
-                }});
-            }}
-            setTimeout(poll, 5000);
-        </script>
-    </body></html>
-    """
-    return html
-
-@app.route('/api/poll_device_token', methods=['POST'])
-def poll_device_token():
-    device_code = request.json.get('device_code')
-    with open(CLIENT_SECRETS_FILE, 'r') as f:
-        s_data = json.load(f); conf = s_data.get('installed', s_data.get('web', {})); c_id = conf.get('client_id'); c_sec = conf.get('client_secret')
-    res = requests.post('https://oauth2.googleapis.com/token', data={'client_id': c_id, 'client_secret': c_sec, 'device_code': device_code, 'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'}).json()
-    
-    if 'error' in res: 
-        err = res['error']
-        if err == 'authorization_pending': return jsonify({"status": "pending", "interval": 5000})
-        elif err == 'slow_down': return jsonify({"status": "pending", "interval": 10000})
-        else: return jsonify({"status": "error", "error": err})
-
-    creds = Credentials(token=res['access_token'], refresh_token=res.get('refresh_token'), token_uri='https://oauth2.googleapis.com/token', client_id=c_id, client_secret=c_sec, scopes=SCOPES)
-    youtube = build('youtube', 'v3', credentials=creds); chan_res = youtube.channels().list(part="snippet", mine=True).execute()
-    
-    if chan_res['items']:
-        item = chan_res['items'][0]; global database_channel
-        c_idx = next((i for i, c in enumerate(database_channel) if c['yt_id'] == item['id']), None)
-        new_c = {"id": len(database_channel)+1 if c_idx is None else database_channel[c_idx]['id'], "name": item['snippet']['title'], "yt_id": item['id'], "thumbnail": item['snippet']['thumbnails']['default']['url'], "status": "Connected 🟢", "creds_json": creds.to_json(), "stream_keys": database_channel[c_idx].get('stream_keys', []) if c_idx is not None else []}
-        if c_idx is None: database_channel.append(new_c)
-        else: database_channel[c_idx] = new_c
-        save_channels(database_channel)
+    metadata = {"channel_yt_id": yt_id, "title": request.form.get('title', ''), "description": request.form.get('description', ''), "privacy": request.form.get('privacy', 'public')}
+    active_tasks.append({"id": t_id, "type": "🔴 LIVE", "title": metadata['title'], "time": st.replace('T',' '), "status": "In Queue ⏳"})
+    save_tasks_db(); threading.Thread(target=run_live_stream, args=(t_id, sk, a_ps, v_ps, st, et, dict(request.form), metadata)).start()
     return jsonify({"status": "success"})
 
-
 if __name__ == '__main__':
-    for t in active_tasks:
-        if t['status'] == "In Queue ⏳" or "Mengantre" in t['status']:
-            t['status'] = "Dibatalkan (Server Restart) ⚠️"
-            history_tasks.insert(0, t)
-    active_tasks = [t for t in active_tasks if "Dibatalkan" not in t['status']]
-    save_tasks_db()
-    
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
