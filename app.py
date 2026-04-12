@@ -16,7 +16,7 @@ import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 # ==========================================
-# 🛡️ AUTO-SETUP DEPENDENCIES & MONITORING
+# 🛡️ AUTO-SETUP DEPENDENCIES & MONITORING MURNI
 # ==========================================
 def auto_setup_dependencies():
     if not os.path.exists("/usr/bin/ffmpeg") and shutil.which("ffmpeg") is None:
@@ -65,7 +65,7 @@ def get_system_stats():
     return {"cpu": cpu_pct, "ram_pct": 0.0, "ram_used": 0.0, "ram_total": 0.0}
 
 # ==========================================
-# 💾 DATABASE ENGINE
+# 💾 PERSISTENCE ENGINE (DATABASE TUGAS)
 # ==========================================
 DB_FILE = 'channels_db.json'
 TASKS_FILE = 'tasks_db.json'
@@ -88,7 +88,7 @@ active_tasks = task_data.get("active", [])
 history_tasks = task_data.get("history", [])
 
 # ==========================================
-# 🚦 RAM GATEKEEPER
+# 🚦 SISTEM PENJAGA GERBANG RAM (ANTI-CRASH)
 # ==========================================
 def wait_for_resources(task_id, max_ram_pct=85.0):
     while True:
@@ -190,11 +190,16 @@ class VisualEngine:
         def safe_num(val, default):
             try: return float(val) if val != "" and val is not None else default
             except: return default
-        react = safe_num(cfg.get('reactivity'), 0.66); grav = safe_num(cfg.get('gravity'), 0.08)
-        idle = int(safe_num(cfg.get('idle_height'), 5)); space = int(safe_num(cfg.get('spacing'), 3))
-        px = safe_num(cfg.get('pos_x'), 50)/100; py = safe_num(cfg.get('pos_y'), 85)/100
-        wp = safe_num(cfg.get('width_pct'), 60)/100; max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
-        p_amt = int(safe_num(cfg.get('part_amount'), 3)); p_spd = safe_num(cfg.get('part_speed'), 1.0)
+        react = safe_num(cfg.get('reactivity'), 0.66)
+        grav = safe_num(cfg.get('gravity'), 0.08)
+        idle = int(safe_num(cfg.get('idle_height'), 5))
+        space = int(safe_num(cfg.get('spacing'), 3))
+        px = safe_num(cfg.get('pos_x'), 50)/100
+        py = safe_num(cfg.get('pos_y'), 85)/100
+        wp = safe_num(cfg.get('width_pct'), 60)/100
+        max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
+        p_amt = int(safe_num(cfg.get('part_amount'), 3))
+        p_spd = safe_num(cfg.get('part_speed'), 1.0)
         for i in range(n):
             if bars[i] > self.bar_h[i]: self.bar_h[i] = self.bar_h[i]*0.2 + bars[i]*0.8
             else: self.bar_h[i] = max(0, self.bar_h[i] - grav)
@@ -218,7 +223,8 @@ def hex_to_rgb(h): return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)
 def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
     w, h = 1280, 720; fps = 30; total_f = int(duration * fps)
     vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part')))
-    bg = BackgroundManager(bg_paths, w, h); audio = AudioBrain(); audio.load(audio_path)
+    bg = BackgroundManager(bg_paths, w, h)
+    audio = AudioBrain(); audio.load(audio_path)
     cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-', '-i', audio_path, '-t', str(duration), '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p', output_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for f in range(total_f):
@@ -226,9 +232,6 @@ def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
         proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg).tobytes())
     proc.stdin.close(); proc.wait(); bg.close()
 
-# ==========================================
-# 📺 VOD WORKER
-# ==========================================
 def background_worker():
     while True:
         task = render_queue.get(); task_id = task['id']
@@ -274,7 +277,6 @@ def background_worker():
                 tags_list = [t.strip() for t in meta['tags'].split(',')] if meta['tags'] else []
                 sch_raw = meta.get('schedule', ''); sch_obj = datetime.strptime(sch_raw.replace(' ', 'T'), "%Y-%m-%dT%H:%M") if sch_raw else datetime.now()
                 
-                # PRIVACY LOGIC
                 pilihan_privasi = meta.get('privacy', 'public')
                 body = {'snippet': {'title': meta['title'], 'description': meta['description'], 'tags': tags_list, 'categoryId': '10'}, 
                         'status': {'privacyStatus': pilihan_privasi}}
@@ -322,9 +324,6 @@ def background_worker():
 
 threading.Thread(target=background_worker, daemon=True).start()
 
-# ==========================================
-# 🔴 LIVE WORKER
-# ==========================================
 def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, end_time_str, cfg, metadata):
     try:
         if not wait_for_resources(task_id): raise Exception("RAM Kepenuhan")
@@ -335,7 +334,7 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         
         m_audio = f"uploads/live_{task_id}/m.mp3"; c_txt = f"uploads/live_{task_id}/c.txt"
         os.makedirs(f"uploads/live_{task_id}", exist_ok=True)
-        with open(c_txt, 'w', encoding='utf-8') as f:
+        with open(c_txt, 'w') as f:
             for ap in audio_paths:
                 safe_path_live = os.path.abspath(ap).replace('\\', '/')
                 f.write(f"file '{safe_path_live}'\n")
@@ -357,8 +356,11 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         if channel_data:
             try:
                 creds = Credentials.from_authorized_user_info(json.loads(channel_data['creds_json'])); youtube = build('youtube', 'v3', credentials=creds)
+                
+                # 🩹 FIX METADATA LIVE STREAM: Harus pakai liveBroadcasts().update()
                 live_res = youtube.liveBroadcasts().list(part="snippet,status", broadcastStatus="active", broadcastType="all").execute()
-                if not live_res.get('items'): live_res = youtube.liveBroadcasts().list(part="snippet,status", broadcastStatus="upcoming", broadcastType="all").execute()
+                if not live_res.get('items'): 
+                    live_res = youtube.liveBroadcasts().list(part="snippet,status", broadcastStatus="upcoming", broadcastType="all").execute()
                 
                 if live_res.get('items'):
                     b_id = live_res['items'][0]['id']
@@ -369,7 +371,10 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
                     v_snip['description'] = metadata['description']
                     v_stat['privacyStatus'] = metadata.get('privacy', 'public')
                     
-                    youtube.videos().update(part="snippet,status", body={"id": b_id, "snippet": v_snip, "status": v_stat}).execute()
+                    # Update data ke Live Broadcast
+                    youtube.liveBroadcasts().update(part="snippet,status", body={"id": b_id, "snippet": v_snip, "status": v_stat}).execute()
+                    
+                    # Thumbnail tetap pakai ID Video (yang sama dengan ID Broadcast)
                     if metadata.get('thumbnail_path') and os.path.exists(metadata['thumbnail_path']):
                         youtube.thumbnails().set(videoId=b_id, media_body=MediaFileUpload(metadata['thumbnail_path'])).execute()
             except Exception as e: print("Live API Metadata Error:", e) 
@@ -401,7 +406,7 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
 
 
 # ==========================================
-# 📊 API ENDPOINTS & ROUTES
+# 📊 API ENDPOINTS
 # ==========================================
 @app.route('/')
 def index(): return render_template('index.html')
@@ -426,7 +431,7 @@ def clear_history():
 
 @app.route('/api/get_channels')
 def get_channels():
-    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], "stream_keys": c.get("stream_keys", []), "title_bank": c.get("title_bank", [])} for c in database_channel]
+    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], "stream_keys": c.get("stream_keys", [])} for c in database_channel]
     return jsonify(safe_c)
 
 @app.route('/api/delete_channel', methods=['POST'])
@@ -436,29 +441,6 @@ def delete_channel():
     database_channel = [c for c in database_channel if c['yt_id'] != yt_id]
     save_channels(database_channel)
     return jsonify({"status": "success", "message": "Channel berhasil dihapus dari sistem KeiBot!"})
-
-@app.route('/api/upload_title_bank', methods=['POST'])
-def upload_title_bank():
-    yt_id = request.form.get('yt_id')
-    txt_file = request.files.get('txt_file')
-    
-    if not yt_id or not txt_file:
-        return jsonify({"status": "error", "message": "Pilih file .txt terlebih dahulu!"})
-        
-    try:
-        content = txt_file.read().decode('utf-8')
-        lines = [line.strip() for line in content.split('\n') if line.strip()]
-        
-        global database_channel
-        for c in database_channel:
-            if c['yt_id'] == yt_id:
-                c['title_bank'] = lines
-                save_channels(database_channel)
-                return jsonify({"status": "success", "message": f"Berhasil menyimpan {len(lines)} judul ke bank!"})
-        
-        return jsonify({"status": "error", "message": "Channel tidak ditemukan."})
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"Gagal membaca file .txt: {str(e)}"})
 
 @app.route('/api/stop_task/<int:task_id>', methods=['POST'])
 def stop_task(task_id):
@@ -583,6 +565,9 @@ def handle_schedule_live():
     
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
 
+# ==========================================
+# Google API Authentication Routes
+# ==========================================
 @app.route('/api/check_secret')
 def check_secret(): return jsonify({"exists": os.path.exists(CLIENT_SECRETS_FILE)})
 
