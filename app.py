@@ -357,7 +357,6 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
             try:
                 creds = Credentials.from_authorized_user_info(json.loads(channel_data['creds_json'])); youtube = build('youtube', 'v3', credentials=creds)
                 
-                # 🩹 FIX METADATA LIVE STREAM: Harus pakai liveBroadcasts().update()
                 live_res = youtube.liveBroadcasts().list(part="snippet,status", broadcastStatus="active", broadcastType="all").execute()
                 if not live_res.get('items'): 
                     live_res = youtube.liveBroadcasts().list(part="snippet,status", broadcastStatus="upcoming", broadcastType="all").execute()
@@ -371,10 +370,8 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
                     v_snip['description'] = metadata['description']
                     v_stat['privacyStatus'] = metadata.get('privacy', 'public')
                     
-                    # Update data ke Live Broadcast
                     youtube.liveBroadcasts().update(part="snippet,status", body={"id": b_id, "snippet": v_snip, "status": v_stat}).execute()
                     
-                    # Thumbnail tetap pakai ID Video (yang sama dengan ID Broadcast)
                     if metadata.get('thumbnail_path') and os.path.exists(metadata['thumbnail_path']):
                         youtube.thumbnails().set(videoId=b_id, media_body=MediaFileUpload(metadata['thumbnail_path'])).execute()
             except Exception as e: print("Live API Metadata Error:", e) 
@@ -431,7 +428,7 @@ def clear_history():
 
 @app.route('/api/get_channels')
 def get_channels():
-    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], "stream_keys": c.get("stream_keys", [])} for c in database_channel]
+    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], "stream_keys": c.get("stream_keys", []), "title_bank": c.get("title_bank", [])} for c in database_channel]
     return jsonify(safe_c)
 
 @app.route('/api/delete_channel', methods=['POST'])
@@ -441,6 +438,34 @@ def delete_channel():
     database_channel = [c for c in database_channel if c['yt_id'] != yt_id]
     save_channels(database_channel)
     return jsonify({"status": "success", "message": "Channel berhasil dihapus dari sistem KeiBot!"})
+
+@app.route('/api/upload_title_bank', methods=['POST'])
+def upload_title_bank():
+    yt_id = request.form.get('yt_id')
+    txt_file = request.files.get('txt_file')
+    
+    if not yt_id or not txt_file:
+        return jsonify({"status": "error", "message": "Pilih file .txt terlebih dahulu!"})
+        
+    try:
+        raw_bytes = txt_file.read()
+        try:
+            content = raw_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            content = raw_bytes.decode('latin-1', errors='ignore')
+            
+        lines = [line.strip() for line in content.split('\n') if line.strip()]
+        
+        global database_channel
+        for c in database_channel:
+            if c['yt_id'] == yt_id:
+                c['title_bank'] = lines
+                save_channels(database_channel)
+                return jsonify({"status": "success", "message": f"Berhasil menyimpan {len(lines)} judul ke bank!"})
+        
+        return jsonify({"status": "error", "message": "Channel tidak ditemukan."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Gagal membaca file .txt: {str(e)}"})
 
 @app.route('/api/stop_task/<int:task_id>', methods=['POST'])
 def stop_task(task_id):
@@ -565,9 +590,6 @@ def handle_schedule_live():
     
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
 
-# ==========================================
-# Google API Authentication Routes
-# ==========================================
 @app.route('/api/check_secret')
 def check_secret(): return jsonify({"exists": os.path.exists(CLIENT_SECRETS_FILE)})
 
