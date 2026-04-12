@@ -274,9 +274,14 @@ class BackgroundManager:
 
 class AudioBrain:
     def __init__(self): self.y = None; self.sr = None; self.duration = 0.0
-    def load(self, path):
-        try: self.y, self.sr = librosa.load(path, sr=22050); self.duration = librosa.get_duration(y=self.y, sr=self.sr)
-        except: pass
+    
+    # 🩹 FIX 2: Batasi beban RAM untuk audio super panjang
+    def load(self, path, max_duration=None):
+        try: 
+            self.y, self.sr = librosa.load(path, sr=22050, duration=max_duration)
+            self.duration = librosa.get_duration(path=path) 
+        except Exception as e: print("AudioBrain Load Error:", e)
+        
     def get_data(self, t, n_bars=64):
         if self.y is None: return 0.0, False, np.zeros(n_bars)
         idx = int(t * self.sr)
@@ -293,10 +298,27 @@ class VisualEngine:
         self.grad = np.zeros((1000, 1, 3), dtype=np.uint8)
         for c in range(3): self.grad[:, 0, c] = np.linspace(self.col_top[c], self.col_bot[c], 1000)
         self.particles = []
+        
     def process(self, frame, vol, bars, cfg):
         h, w = frame.shape[:2]; n = len(bars)
         if self.bar_h is None or len(self.bar_h) != n: self.bar_h = np.zeros(n)
-        react = float(cfg.get('reactivity', 0.66)); grav = float(cfg.get('gravity', 0.08)); idle = int(cfg.get('idle_height', 5)); space = int(cfg.get('spacing', 3)); px = float(cfg.get('pos_x', 50))/100; py = float(cfg.get('pos_y', 85))/100; wp = float(cfg.get('width_pct', 60))/100; max_h = h * (float(cfg.get('max_height', 40))/100); p_amt = int(cfg.get('part_amount', 3)); p_spd = float(cfg.get('part_speed', 1.0))
+        
+        # 🩹 FIX 1: Penangkal form kosong (ValueError killer)
+        def safe_num(val, default):
+            try: return float(val) if val != "" and val is not None else default
+            except: return default
+
+        react = safe_num(cfg.get('reactivity'), 0.66)
+        grav = safe_num(cfg.get('gravity'), 0.08)
+        idle = int(safe_num(cfg.get('idle_height'), 5))
+        space = int(safe_num(cfg.get('spacing'), 3))
+        px = safe_num(cfg.get('pos_x'), 50)/100
+        py = safe_num(cfg.get('pos_y'), 85)/100
+        wp = safe_num(cfg.get('width_pct'), 60)/100
+        max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
+        p_amt = int(safe_num(cfg.get('part_amount'), 3))
+        p_spd = safe_num(cfg.get('part_speed'), 1.0)
+
         for i in range(n):
             if bars[i] > self.bar_h[i]: self.bar_h[i] = self.bar_h[i]*0.2 + bars[i]*0.8
             else: self.bar_h[i] = max(0, self.bar_h[i] - grav)
@@ -471,7 +493,11 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         for d in active_tasks:
             if d['id'] == task_id: d['status'] = "ON AIR (LIVE) 🔴"
         save_tasks_db()
-        rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"; vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part'))); bg = BackgroundManager(bg_paths, 1280, 720); audio = AudioBrain(); audio.load(m_audio)
+        rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"; vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part'))); bg = BackgroundManager(bg_paths, 1280, 720)
+        
+        # 🩹 FIX 2 (LIVE): Batasi beban RAM saat live (Hanya melahap max 10 menit untuk dianalisa)
+        audio = AudioBrain()
+        audio.load(m_audio, max_duration=600)
         
         # PEMBATAS CPU FFMPEG DITAMBAHKAN DI SINI (-threads 2)
         cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', '1280x720', '-pix_fmt', 'bgr24', '-r', '30', '-i', '-', '-stream_loop', '-1', '-i', m_audio, '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '2500k', '-maxrate', '2500k', '-bufsize', '5000k', '-pix_fmt', 'yuv420p', '-g', '60', '-c:a', 'aac', '-b:a', '128k', '-f', 'flv', rtmp_url]
@@ -581,11 +607,18 @@ def handle_upload_vod():
     if thumb_file and thumb_file.filename: thumb_path = f"uploads/vod_thumb_{t_id}{os.path.splitext(thumb_file.filename)[1]}"; thumb_file.save(thumb_path)
 
     metadata = {"channel_yt_id": request.form.get('channel_select', ''), "title": request.form.get('title', ''), "description": request.form.get('description', ''), "tags": request.form.get('tags', ''), "playlist_id": request.form.get('playlist', ''), "thumbnail_path": thumb_path, "schedule": request.form.get('schedule', '')}
+    
+    # 🩹 FIX 3 & 4 (VOD): Mengatasi jadwal kosong dan menyelamatkan form data sebelum hilang
+    sched_raw = request.form.get('schedule', '')
+    sched_str = sched_raw.replace('T', ' ') if sched_raw else "Langsung"
     loop_count = int(request.form.get('loop_count', 1))
     
-    active_tasks.append({"id": t_id, "type": "📺 VOD", "title": metadata['title'], "time": request.form.get('schedule').replace('T',' '), "status": "In Queue ⏳"})
+    active_tasks.append({"id": t_id, "type": "📺 VOD", "title": metadata['title'], "time": sched_str, "status": "In Queue ⏳"})
     save_tasks_db()
-    render_queue.put({"id": t_id, "audio_paths": a_ps, "bg_paths": v_ps, "vis": request.form, "loop_count": loop_count, "metadata": metadata})
+    
+    form_data = dict(request.form) # Kloning data agar aman diakses oleh Background Thread
+    render_queue.put({"id": t_id, "audio_paths": a_ps, "bg_paths": v_ps, "vis": form_data, "loop_count": loop_count, "metadata": metadata})
+    
     return jsonify({"status": "success", "message": "Masuk Antrean VOD!"})
 
 @app.route('/api/schedule_live', methods=['POST'])
@@ -594,6 +627,12 @@ def handle_schedule_live():
     if not stream_key: return jsonify({"status": "error", "message": "Harap pilih Stream Key dari menu Dropdown!"})
     if stream_key in active_stream_keys: return jsonify({"status": "error", "message": "Stream Key ini SEDANG DIPAKAI oleh tugas Live lain! Silakan pilih Key yang berbeda."})
     
+    # 🩹 FIX 3 (LIVE): Memaksa jadwal agar tidak kosong dan bikin crash
+    sched_start = request.form.get('schedule_start', '')
+    sched_end = request.form.get('schedule_end', '')
+    if not sched_start or not sched_end: 
+        return jsonify({"status": "error", "message": "Jadwal Mulai dan Selesai WAJIB diisi untuk Live!"})
+
     active_stream_keys.add(stream_key)
     yt_id = request.form.get('channel_select')
     
@@ -608,9 +647,13 @@ def handle_schedule_live():
 
     metadata = {"channel_yt_id": yt_id, "title": request.form.get('title', ''), "description": request.form.get('description', ''), "tags": request.form.get('tags', ''), "thumbnail_path": thumb_path}
     
-    active_tasks.append({"id": t_id, "type": "🔴 LIVE", "title": metadata['title'], "time": f"Mulai: {request.form.get('schedule_start').replace('T', ' ')}", "status": "In Queue ⏳"})
+    active_tasks.append({"id": t_id, "type": "🔴 LIVE", "title": metadata['title'], "time": f"Mulai: {sched_start.replace('T', ' ')}", "status": "In Queue ⏳"})
     save_tasks_db()
-    threading.Thread(target=run_live_stream, args=(t_id, stream_key, a_ps, v_ps, request.form.get('schedule_start'), request.form.get('schedule_end'), request.form, metadata)).start()
+    
+    # 🩹 FIX 4 (LIVE): Menyelamatkan data form sebelum mati
+    form_data = dict(request.form)
+    threading.Thread(target=run_live_stream, args=(t_id, stream_key, a_ps, v_ps, sched_start, sched_end, form_data, metadata)).start()
+    
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
 
 if __name__ == '__main__':
