@@ -244,7 +244,6 @@ def background_worker():
             base_audio = f"uploads/base_a_{task_id}.mp3"; c_txt = f"uploads/c_{task_id}.txt"
             with open(c_txt, 'w', encoding='utf-8') as f:
                 for ap in task['audio_paths']:
-                    # 🩹 FIX: Hapus f-string yang ada backslashnya
                     safe_path = os.path.abspath(ap).replace('\\', '/')
                     f.write(f"file '{safe_path}'\n")
             subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio])
@@ -267,7 +266,6 @@ def background_worker():
                 loop_txt = f"uploads/loop_{task_id}.txt"
                 with open(loop_txt, 'w', encoding='utf-8') as f:
                     for _ in range(loop_count):
-                        # 🩹 FIX: Hapus f-string yang ada backslashnya
                         safe_path_vid = os.path.abspath(base_video).replace('\\', '/')
                         f.write(f"file '{safe_path_vid}'\n")
                 subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', loop_txt, '-c', 'copy', out_file])
@@ -338,7 +336,6 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         os.makedirs(f"uploads/live_{task_id}", exist_ok=True)
         with open(c_txt, 'w') as f:
             for ap in audio_paths:
-                # 🩹 FIX: Hapus f-string yang ada backslashnya
                 safe_path_live = os.path.abspath(ap).replace('\\', '/')
                 f.write(f"file '{safe_path_live}'\n")
         subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', m_audio])
@@ -428,7 +425,7 @@ def clear_history():
 
 @app.route('/api/get_channels')
 def get_channels():
-    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], "stream_keys": c.get("stream_keys", [])} for c in database_channel]
+    safe_c = [{"id": c["id"], "name": c["name"], "yt_id": c["yt_id"], "thumbnail": c["thumbnail"], "status": c["status"], "stream_keys": c.get("stream_keys", []), "title_bank": c.get("title_bank", [])} for c in database_channel]
     return jsonify(safe_c)
 
 @app.route('/api/delete_channel', methods=['POST'])
@@ -438,6 +435,29 @@ def delete_channel():
     database_channel = [c for c in database_channel if c['yt_id'] != yt_id]
     save_channels(database_channel)
     return jsonify({"status": "success", "message": "Channel berhasil dihapus dari sistem KeiBot!"})
+
+@app.route('/api/upload_title_bank', methods=['POST'])
+def upload_title_bank():
+    yt_id = request.form.get('yt_id')
+    txt_file = request.files.get('txt_file')
+    
+    if not yt_id or not txt_file:
+        return jsonify({"status": "error", "message": "Pilih file .txt terlebih dahulu!"})
+        
+    try:
+        content = txt_file.read().decode('utf-8')
+        lines = [line.strip() for line in content.split('\n') if line.strip()]
+        
+        global database_channel
+        for c in database_channel:
+            if c['yt_id'] == yt_id:
+                c['title_bank'] = lines
+                save_channels(database_channel)
+                return jsonify({"status": "success", "message": f"Berhasil menyimpan {len(lines)} judul ke bank!"})
+        
+        return jsonify({"status": "error", "message": "Channel tidak ditemukan."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Gagal membaca file .txt: {str(e)}"})
 
 @app.route('/api/stop_task/<int:task_id>', methods=['POST'])
 def stop_task(task_id):
