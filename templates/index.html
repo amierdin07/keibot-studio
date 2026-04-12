@@ -274,9 +274,12 @@
             switchTab('tasks'); renderTableTasks(); prosesKokiMasak(); 
         }
 
+        // 🩹 FIX: Koki Masak yang Anti-Ngefreeze
         function prosesKokiMasak() {
             if(isUploading) return;
-            let indexBahan = browserQueue.findIndex(t => t.status.includes('Mengantre') || t.status.includes('Gagal'));
+            
+            // HANYA cari yang statusnya "Mengantre", biarkan yang "Gagal" agar tidak me-loop terus-terusan
+            let indexBahan = browserQueue.findIndex(t => t.status.includes('Mengantre'));
             if(indexBahan === -1) { isUploading = false; return; }
 
             isUploading = true;
@@ -296,9 +299,22 @@
             };
 
             xhr.onload = function() {
-                browserQueue.splice(indexBahan, 1); isUploading = false; fetchDataFromServer(); prosesKokiMasak(); 
+                // Cek status HTTP dari server (200 OK, 500 Error, dll)
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    browserQueue.splice(indexBahan, 1); // Upload sukses, buang dari memori lokal
+                } else {
+                    task.status = '❌ Gagal Server (Cek Ukuran File)'; // Upload ditolak server
+                }
+                isUploading = false; 
+                fetchDataFromServer(); 
+                prosesKokiMasak(); // Panggil lagi untuk memasak antrean berikutnya
             };
-            xhr.onerror = function() { task.status = '❌ Gagal Upload! Coba lagi.'; isUploading = false; renderTableTasks(); };
+            xhr.onerror = function() { 
+                task.status = '❌ Gagal Jaringan / Terputus'; 
+                isUploading = false; 
+                renderTableTasks(); 
+                prosesKokiMasak(); // Panggil lagi untuk memasak antrean berikutnya
+            };
             xhr.send(task.dataBahan);
         }
 
@@ -311,11 +327,12 @@
         }
 
         function checkApiStatus() {
-            fetch('/api/check_secret').then(r=>r.json()).then(d=>{
+            // Tambahkan parameter ?t=... agar browser tidak melalukan Cache pada status API
+            fetch('/api/check_secret?t=' + new Date().getTime()).then(r=>r.json()).then(d=>{
                 const badge = document.getElementById('api_status_badge');
                 if(d.exists) { badge.innerText = "🟢 API AKTIF"; badge.style.background = "#00ffaa"; badge.style.color = "black"; } 
                 else { badge.innerText = "🔴 BELUM UPLOAD API"; badge.style.background = "#b90000"; badge.style.color = "white"; }
-            });
+            }).catch(e => console.log("Menunggu API..."));
         }
         function uploadSecret(e) { e.preventDefault(); fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) }).then(r => r.json()).then(d => { alert(d.message); checkApiStatus(); e.target.reset(); }); }
         
