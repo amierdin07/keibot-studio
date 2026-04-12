@@ -243,7 +243,10 @@ def background_worker():
             
             base_audio = f"uploads/base_a_{task_id}.mp3"; c_txt = f"uploads/c_{task_id}.txt"
             with open(c_txt, 'w', encoding='utf-8') as f:
-                for ap in task['audio_paths']: f.write(f"file '{os.path.abspath(ap).replace('\\', '/')}'\n")
+                for ap in task['audio_paths']:
+                    # 🩹 FIX: Hapus f-string yang ada backslashnya
+                    safe_path = os.path.abspath(ap).replace('\\', '/')
+                    f.write(f"file '{safe_path}'\n")
             subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio])
             
             audio = AudioBrain(); audio.load(base_audio); base_dur = audio.duration if audio.duration > 0 else 10
@@ -263,7 +266,10 @@ def background_worker():
                 save_tasks_db()
                 loop_txt = f"uploads/loop_{task_id}.txt"
                 with open(loop_txt, 'w', encoding='utf-8') as f:
-                    for _ in range(loop_count): f.write(f"file '{os.path.abspath(base_video).replace('\\', '/')}'\n")
+                    for _ in range(loop_count):
+                        # 🩹 FIX: Hapus f-string yang ada backslashnya
+                        safe_path_vid = os.path.abspath(base_video).replace('\\', '/')
+                        f.write(f"file '{safe_path_vid}'\n")
                 subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', loop_txt, '-c', 'copy', out_file])
             else: shutil.copy(base_video, out_file)
 
@@ -273,7 +279,6 @@ def background_worker():
                 tags_list = [t.strip() for t in meta['tags'].split(',')] if meta['tags'] else []
                 sch_raw = meta.get('schedule', ''); sch_obj = datetime.strptime(sch_raw.replace(' ', 'T'), "%Y-%m-%dT%H:%M") if sch_raw else datetime.now()
                 
-                # 🩹 PRIVACY LOGIC (VOD)
                 pilihan_privasi = meta.get('privacy', 'public')
                 body = {'snippet': {'title': meta['title'], 'description': meta['description'], 'tags': tags_list, 'categoryId': '10'}, 
                         'status': {'privacyStatus': pilihan_privasi}}
@@ -281,7 +286,7 @@ def background_worker():
                 if sch_obj > datetime.now():
                     sch_utc = sch_obj - dt.timedelta(hours=7)
                     body['status']['publishAt'] = sch_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-                    body['status']['privacyStatus'] = 'private' # Wajib Private kalau dijadwalkan
+                    body['status']['privacyStatus'] = 'private'
 
                 media = MediaFileUpload(out_file, chunksize=1024*1024*5, resumable=True)
                 req = youtube.videos().insert(part=','.join(body.keys()), body=body, media_body=media)
@@ -332,7 +337,10 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         m_audio = f"uploads/live_{task_id}/m.mp3"; c_txt = f"uploads/live_{task_id}/c.txt"
         os.makedirs(f"uploads/live_{task_id}", exist_ok=True)
         with open(c_txt, 'w') as f:
-            for ap in audio_paths: f.write(f"file '{os.path.abspath(ap).replace('\\', '/')}'\n")
+            for ap in audio_paths:
+                # 🩹 FIX: Hapus f-string yang ada backslashnya
+                safe_path_live = os.path.abspath(ap).replace('\\', '/')
+                f.write(f"file '{safe_path_live}'\n")
         subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', m_audio])
         
         start_obj = datetime.strptime(start_time_str.replace('T', ' '), "%Y-%m-%d %H:%M")
@@ -347,7 +355,6 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
             if d['id'] == task_id: d['status'] = "Memperbarui Metadata Live... 📡"
         save_tasks_db()
 
-        # Update Metadata Youtube Live
         channel_data = next((c for c in database_channel if c['yt_id'] == metadata['channel_yt_id']), None)
         if channel_data:
             try:
@@ -362,7 +369,7 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
                     
                     v_snip['title'] = metadata['title']
                     v_snip['description'] = metadata['description']
-                    v_stat['privacyStatus'] = metadata.get('privacy', 'public') # 🩹 PRIVASI LIVE
+                    v_stat['privacyStatus'] = metadata.get('privacy', 'public')
                     
                     youtube.videos().update(part="snippet,status", body={"id": b_id, "snippet": v_snip, "status": v_stat}).execute()
                     if metadata.get('thumbnail_path') and os.path.exists(metadata['thumbnail_path']):
@@ -500,7 +507,7 @@ def handle_upload_vod():
         "playlist_id": request.form.get('playlist', ''), 
         "thumbnail_path": thumb_path, 
         "schedule": request.form.get('schedule', ''),
-        "privacy": request.form.get('privacy', 'public') # 🩹 EXTRACTION PRIVACY
+        "privacy": request.form.get('privacy', 'public')
     }
     
     sched_raw = request.form.get('schedule', '')
@@ -544,7 +551,7 @@ def handle_schedule_live():
         "description": request.form.get('description', ''), 
         "tags": request.form.get('tags', ''), 
         "thumbnail_path": thumb_path,
-        "privacy": request.form.get('privacy', 'public') # 🩹 EXTRACTION PRIVACY LIVE
+        "privacy": request.form.get('privacy', 'public')
     }
     
     active_tasks.append({"id": t_id, "type": "🔴 LIVE", "title": metadata['title'], "time": f"Mulai: {sched_start.replace('T', ' ')}", "status": "In Queue ⏳"})
@@ -662,7 +669,6 @@ def poll_device_token():
 
 
 if __name__ == '__main__':
-    # Bersihkan antrean lama saat server restart
     for t in active_tasks:
         if t['status'] == "In Queue ⏳" or "Mengantre" in t['status']:
             t['status'] = "Dibatalkan (Server Restart) ⚠️"
