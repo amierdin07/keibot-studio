@@ -16,7 +16,7 @@ import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 # ==========================================
-# 🛡️ AUTO-SETUP DEPENDENCIES & MONITORING MURNI
+# 🛡️ AUTO-SETUP DEPENDENCIES & MONITORING
 # ==========================================
 def auto_setup_dependencies():
     if not os.path.exists("/usr/bin/ffmpeg") and shutil.which("ffmpeg") is None:
@@ -65,7 +65,7 @@ def get_system_stats():
     return {"cpu": cpu_pct, "ram_pct": 0.0, "ram_used": 0.0, "ram_total": 0.0}
 
 # ==========================================
-# 💾 PERSISTENCE ENGINE (DATABASE TUGAS)
+# 💾 DATABASE ENGINE
 # ==========================================
 DB_FILE = 'channels_db.json'
 TASKS_FILE = 'tasks_db.json'
@@ -88,7 +88,7 @@ active_tasks = task_data.get("active", [])
 history_tasks = task_data.get("history", [])
 
 # ==========================================
-# 🚦 SISTEM PENJAGA GERBANG RAM (ANTI-CRASH)
+# 🚦 RAM GATEKEEPER
 # ==========================================
 def wait_for_resources(task_id, max_ram_pct=85.0):
     while True:
@@ -190,16 +190,11 @@ class VisualEngine:
         def safe_num(val, default):
             try: return float(val) if val != "" and val is not None else default
             except: return default
-        react = safe_num(cfg.get('reactivity'), 0.66)
-        grav = safe_num(cfg.get('gravity'), 0.08)
-        idle = int(safe_num(cfg.get('idle_height'), 5))
-        space = int(safe_num(cfg.get('spacing'), 3))
-        px = safe_num(cfg.get('pos_x'), 50)/100
-        py = safe_num(cfg.get('pos_y'), 85)/100
-        wp = safe_num(cfg.get('width_pct'), 60)/100
-        max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
-        p_amt = int(safe_num(cfg.get('part_amount'), 3))
-        p_spd = safe_num(cfg.get('part_speed'), 1.0)
+        react = safe_num(cfg.get('reactivity'), 0.66); grav = safe_num(cfg.get('gravity'), 0.08)
+        idle = int(safe_num(cfg.get('idle_height'), 5)); space = int(safe_num(cfg.get('spacing'), 3))
+        px = safe_num(cfg.get('pos_x'), 50)/100; py = safe_num(cfg.get('pos_y'), 85)/100
+        wp = safe_num(cfg.get('width_pct'), 60)/100; max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
+        p_amt = int(safe_num(cfg.get('part_amount'), 3)); p_spd = safe_num(cfg.get('part_speed'), 1.0)
         for i in range(n):
             if bars[i] > self.bar_h[i]: self.bar_h[i] = self.bar_h[i]*0.2 + bars[i]*0.8
             else: self.bar_h[i] = max(0, self.bar_h[i] - grav)
@@ -223,8 +218,7 @@ def hex_to_rgb(h): return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)
 def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
     w, h = 1280, 720; fps = 30; total_f = int(duration * fps)
     vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part')))
-    bg = BackgroundManager(bg_paths, w, h)
-    audio = AudioBrain(); audio.load(audio_path)
+    bg = BackgroundManager(bg_paths, w, h); audio = AudioBrain(); audio.load(audio_path)
     cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-', '-i', audio_path, '-t', str(duration), '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p', output_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for f in range(total_f):
@@ -232,6 +226,9 @@ def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
         proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg).tobytes())
     proc.stdin.close(); proc.wait(); bg.close()
 
+# ==========================================
+# 📺 VOD WORKER
+# ==========================================
 def background_worker():
     while True:
         task = render_queue.get(); task_id = task['id']
@@ -277,6 +274,7 @@ def background_worker():
                 tags_list = [t.strip() for t in meta['tags'].split(',')] if meta['tags'] else []
                 sch_raw = meta.get('schedule', ''); sch_obj = datetime.strptime(sch_raw.replace(' ', 'T'), "%Y-%m-%dT%H:%M") if sch_raw else datetime.now()
                 
+                # PRIVACY LOGIC
                 pilihan_privasi = meta.get('privacy', 'public')
                 body = {'snippet': {'title': meta['title'], 'description': meta['description'], 'tags': tags_list, 'categoryId': '10'}, 
                         'status': {'privacyStatus': pilihan_privasi}}
@@ -324,6 +322,9 @@ def background_worker():
 
 threading.Thread(target=background_worker, daemon=True).start()
 
+# ==========================================
+# 🔴 LIVE WORKER
+# ==========================================
 def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, end_time_str, cfg, metadata):
     try:
         if not wait_for_resources(task_id): raise Exception("RAM Kepenuhan")
@@ -334,7 +335,7 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         
         m_audio = f"uploads/live_{task_id}/m.mp3"; c_txt = f"uploads/live_{task_id}/c.txt"
         os.makedirs(f"uploads/live_{task_id}", exist_ok=True)
-        with open(c_txt, 'w') as f:
+        with open(c_txt, 'w', encoding='utf-8') as f:
             for ap in audio_paths:
                 safe_path_live = os.path.abspath(ap).replace('\\', '/')
                 f.write(f"file '{safe_path_live}'\n")
@@ -400,7 +401,7 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
 
 
 # ==========================================
-# 📊 API ENDPOINTS
+# 📊 API ENDPOINTS & ROUTES
 # ==========================================
 @app.route('/')
 def index(): return render_template('index.html')
@@ -582,9 +583,6 @@ def handle_schedule_live():
     
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
 
-# ==========================================
-# Google API Authentication Routes
-# ==========================================
 @app.route('/api/check_secret')
 def check_secret(): return jsonify({"exists": os.path.exists(CLIENT_SECRETS_FILE)})
 
