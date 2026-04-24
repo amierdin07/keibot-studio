@@ -128,6 +128,7 @@
                 
                 <div class="sidebar-category">Studio Engine</div>
                 <button class="nav-item" onclick="switchTab('upload')" id="btn-upload"><span class="icon">📺</span> VOD Studio</button>
+                <button class="nav-item" onclick="switchTab('fb')" id="btn-fb"><span class="icon">🔵</span> FB Studio</button>
                 <button class="nav-item" onclick="switchTab('live')" id="btn-live"><span class="icon">🔴</span> Live Station</button>
                 
                 <div class="sidebar-category">System</div>
@@ -232,6 +233,54 @@
             </div>
 
             <div class="settings-grid" id="settingsGrid"></div>
+
+            <div style="margin-top:50px; border-top:2px solid var(--border); padding-top:40px;">
+                <h3 style="margin:0; font-size:18px; color:var(--secondary);">🔵 Facebook Pages Manager</h3>
+                <p style="margin:5px 0 25px; color:var(--text-muted); font-size:13px;">Kelola Fanspage Facebook untuk fitur FB Studio.</p>
+                
+                <div style="background:var(--bg-panel); padding:30px; border-radius:var(--radius); border:1px solid var(--border); box-shadow:var(--shadow); margin-bottom: 30px;">
+                    <h4 style="margin-top:0; font-size:14px;">Tambah Fanspage Baru</h4>
+                    <form onsubmit="saveFbPage(event)" style="display:grid; grid-template-columns: 1fr 1fr 2fr auto; gap:15px; align-items:end;">
+                        <div><label style="font-size:11px; font-weight:700;">Nama Halaman</label><input type="text" name="name" required placeholder="Contoh: My Fanspage"></div>
+                        <div><label style="font-size:11px; font-weight:700;">Page ID</label><input type="text" name="page_id" required placeholder="123456789"></div>
+                        <div><label style="font-size:11px; font-weight:700;">Access Token</label><input type="password" name="access_token" required placeholder="EAAZ..."></div>
+                        <button type="submit" class="btn-gold" style="margin:0; padding:12px 25px; width:auto;">SIMPAN</button>
+                    </form>
+                </div>
+
+                <div id="fbPagesGrid" class="settings-grid"></div>
+            </div>
+        </div>
+
+        <div id="fb" class="panel">
+            <h2 style="margin-top:0; font-size: 24px; font-weight: 800; color:var(--secondary);">FB Studio (Fanspage Upload)</h2>
+            <p style="margin:5px 0 25px; color:var(--text-muted); font-size:13px;">Render dan upload video otomatis langsung ke Fanspage Facebook Anda.</p>
+            
+            <form id="formFb" onsubmit="submitForm(event, '/api/upload_fb')">
+                <div style="background:var(--bg-input); padding:25px; border-radius:12px; border:1px solid var(--border); margin-bottom:20px;">
+                    <label style="font-weight:700; font-size:13px; color:var(--text-main);">Target Fanspage</label>
+                    <select name="fb_page_select" id="fb_page_select" required></select>
+                    
+                    <div class="grid-3" style="margin-top: 20px;">
+                        <div><label style="font-weight:700; font-size:12px;">Audio Playlist (Multi)</label><input type="file" name="audios" id="fb_audio_input" multiple accept=".mp3,.wav" required onchange="calcAudioDuration(this, 'fb_dur_info')"><small id="fb_dur_info" style="color:var(--text-muted); display:block; font-family:monospace; margin-top:8px;">Durasi Asli: 00:00:00</small></div>
+                        <div><label style="font-weight:700; font-size:12px;">Background Video/Image</label><input type="file" name="background" multiple accept=".mp4,.jpg,.png" required></div>
+                        <div><label style="font-weight:700; font-size:12px;">Looping (Penggandaan)</label><input type="number" name="loop_count" id="fb_loop_count" min="1" value="1" required oninput="updateTotalDuration('fb')"><small id="fb_total_info" style="color:var(--secondary); display:block; font-family:monospace; font-weight:bold; margin-top:8px;">Estimasi Final: 00:00:00</small></div>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid var(--border); padding-top: 25px;">
+                    <h3 style="font-size:15px; margin-top:0;">📝 Facebook Metadata</h3>
+                    <div class="grid-3">
+                        <div style="grid-column: span 3;"><label style="font-weight:600; font-size:12px;">Judul Video (FB)</label><input type="text" name="title" required></div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <label style="font-weight:600; font-size:12px;">Deskripsi Video</label>
+                        <textarea name="description" rows="5" placeholder="Tulis caption menarik untuk pengikut Fanspage Anda..."></textarea>
+                    </div>
+                </div>
+                <div class="vis-box" id="visFb" style="margin-top:25px;"></div>
+                <button type="submit" class="btn-gold" style="background:var(--secondary); box-shadow: 0 4px 15px rgba(14, 165, 233, 0.2);">🚀 MULAI RENDER & UPLOAD KE FACEBOOK</button>
+            </form>
         </div>
 
         <div id="upload" class="panel">
@@ -391,7 +440,7 @@
             if(indexBahan === -1) { isUploading = false; return; }
 
             isUploading = true; let task = browserQueue[indexBahan];
-            task.status = '🚀 Upload Bahan... 0%'; renderTableTasks();
+            task.status = `🚀 Upload Bahan... ${task.progress}%`; renderTableTasks();
 
             let xhr = new XMLHttpRequest(); xhr.open("POST", task.api, true);
             xhr.upload.onprogress = function(event) {
@@ -490,17 +539,55 @@
         }
         function uploadSecret(e) { e.preventDefault(); fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) }).then(r => r.json()).then(d => { alert(d.message); checkApiStatus(); e.target.reset(); }); }
         
-        function loadChannels() { 
-            fetch('/api/get_channels').then(r => r.json()).then(data => { 
-                cachedChannels = data; 
-                const dds_vod = document.getElementById('vod_channel_select'); const dds_live = document.getElementById('live_channel_select'); 
-                const vod_val = dds_vod.value; const live_val = dds_live.value; 
-                dds_vod.innerHTML = '<option value="">-- Pilih Channel --</option>'; dds_live.innerHTML = '<option value="">-- Pilih Channel --</option>'; 
-                data.forEach(ch => { dds_vod.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; dds_live.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; }); 
-                if(vod_val) { dds_vod.value = vod_val; } 
                 if(live_val) { dds_live.value = live_val; handleLiveChannelSelect(dds_live); } 
                 renderSettingsGrid(); 
             }); 
+            loadFbPages();
+        }
+
+        function loadFbPages() {
+            fetch('/api/get_fb_pages').then(r => r.json()).then(data => {
+                const fbSelect = document.getElementById('fb_page_select');
+                if(fbSelect) {
+                    fbSelect.innerHTML = '<option value="">-- Pilih Fanspage --</option>';
+                    data.forEach(p => { fbSelect.innerHTML += `<option value="${p.page_id}">${p.name}</option>`; });
+                }
+                renderFbPagesGrid(data);
+            });
+        }
+
+        function saveFbPage(e) {
+            e.preventDefault();
+            fetch('/api/save_fb_page', { method: 'POST', body: new FormData(e.target) }).then(r => r.json()).then(d => {
+                alert(d.message); e.target.reset(); loadFbPages();
+            });
+        }
+
+        function deleteFbPage(p_id) {
+            if(confirm("Hapus Fanspage ini?")) {
+                let fd = new FormData(); fd.append('page_id', p_id);
+                fetch('/api/delete_fb_page', { method: 'POST', body: fd }).then(r => r.json()).then(d => {
+                    alert(d.message); loadFbPages();
+                });
+            }
+        }
+
+        function renderFbPagesGrid(data) {
+            const grid = document.getElementById('fbPagesGrid');
+            if(!grid) return;
+            grid.innerHTML = '';
+            data.forEach(p => {
+                grid.innerHTML += `
+                <div class="channel-row" style="margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="channel-info">
+                            <div style="width:40px; height:40px; background:var(--secondary); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:800;">FB</div>
+                            <div><h4 style="margin:0;">${p.name}</h4><small style="color:var(--text-muted);">ID: ${p.page_id}</small></div>
+                        </div>
+                        <button class="btn-danger" onclick="deleteFbPage('${p.page_id}')">Hapus</button>
+                    </div>
+                </div>`;
+            });
         }
 
         function deleteChannel(yt_id) {
@@ -603,9 +690,11 @@
                 }
 
                 let row = `<tr><td><span style="color:var(--text-muted); font-weight:700;">#${t.id}</span></td><td style="font-weight:700;">${t.title}</td><td style="font-size:12px; color:var(--text-muted);">${t.time}</td><td>${statusHtml}</td><td>${btnStop}</td></tr>`; 
-                if(t.type.includes("VOD")) { tbVOD.innerHTML += row; vC++; } else { tbLive.innerHTML += row; lC++; } 
+                if(t.type.includes("VOD")) { tbVOD.innerHTML += row; vC++; } 
+                else if(t.type.includes("FB")) { tbVOD.innerHTML += row; vC++; }
+                else { tbLive.innerHTML += row; lC++; } 
             }); 
-            if(vC === 0) tbVOD.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:20px;">Tidak ada antrean VOD.</td></tr>'; 
+            if(vC === 0) tbVOD.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:20px;">Tidak ada antrean VOD / FB.</td></tr>'; 
             if(lC === 0) tbLive.innerHTML = '<tr><td colspan="5" align="center" style="color:var(--text-muted); padding:20px;">Tidak ada Live Stream yang berjalan.</td></tr>'; 
             lastServerData.history.forEach(t => { let c = t.status.includes('❌') ? 'var(--danger)' : 'var(--text-muted)'; tbH.innerHTML += `<tr><td><span style="font-weight:700; color:var(--text-muted);">#${t.id}</span></td><td><span style="background:var(--bg-main); padding:4px 8px; border-radius:4px; font-size:11px; font-weight:700;">${t.type}</span></td><td style="font-weight:700;">${t.title}</td><td style="color:${c}; font-weight:600;">${t.status}</td></tr>`; }); 
             document.getElementById('tm_channels').innerText = cachedChannels.length; document.getElementById('tm_active').innerText = lastServerData.active.length + browserQueue.length; document.getElementById('tm_history').innerText = lastServerData.history.length; 
@@ -682,7 +771,7 @@
         function eksekusiPresetKeLayar(mode, p) { document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]); document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]); document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]); document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100; document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100; document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100; document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100; document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height; document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity; document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed; document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count; document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap; document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density; document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed; document.querySelectorAll(`#${mode} input[type=range]`).forEach(el => el.dispatchEvent(new Event('input'))); }
         function uVal(id,v,s) { document.getElementById(id).innerText = v+s; }
 
-        function initApp() { injectVisualizer('visVod', 'vod'); injectVisualizer('visLive', 'live'); loadChannels(); fetchAnalyticsData(); checkApiStatus(); setInterval(fetchDataFromServer, 2000); refreshPresetDropdowns(); }
+        function initApp() { injectVisualizer('visVod', 'vod'); injectVisualizer('visFb', 'fb'); injectVisualizer('visLive', 'live'); loadChannels(); fetchAnalyticsData(); checkApiStatus(); setInterval(fetchDataFromServer, 2000); refreshPresetDropdowns(); }
     </script>
     
     <div style="position: fixed; bottom: 25px; right: 25px; background: #ffffff; border: 1px solid var(--border); padding: 15px 20px; border-radius: 12px; font-family: 'Segoe UI'; font-size: 13px; z-index: 9999; box-shadow: var(--shadow-hover); display:flex; gap:20px; align-items:center;">

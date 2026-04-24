@@ -68,6 +68,7 @@ def get_system_stats():
 # 💾 PERSISTENCE ENGINE (DATABASE TUGAS)
 # ==========================================
 DB_FILE = 'channels_db.json'
+FB_DB_FILE = 'facebook_db.json'
 TASKS_FILE = 'tasks_db.json'
 CLIENT_SECRETS_FILE = "client_secret.json"
 SCOPES = ['https://www.googleapis.com/auth/youtube', 'https://www.googleapis.com/auth/youtube.upload']
@@ -125,7 +126,18 @@ def load_channels():
 def save_channels(channels):
     with open(DB_FILE, 'w') as f: json.dump(channels, f, indent=4)
 
+def load_fb_pages():
+    if os.path.exists(FB_DB_FILE):
+        try:
+            with open(FB_DB_FILE, 'r') as f: return json.load(f)
+        except: return []
+    return []
+
+def save_fb_pages(pages):
+    with open(FB_DB_FILE, 'w') as f: json.dump(pages, f, indent=4)
+
 database_channel = load_channels()
+database_fb = load_fb_pages()
 render_queue = queue.Queue()
 live_threads = {}; stop_flags = {}; active_stream_keys = set()
 
@@ -315,6 +327,32 @@ def background_worker():
                 except: pass
                 
                 move_to_history(task_id, f"Tayang! ✅ <a href='https://youtu.be/{video_id}' target='_blank'>[Lihat]</a>")
+            elif "FB" in task.get('type', ''):
+                # ==========================================
+                # 🔵 FACEBOOK UPLOAD LOGIC
+                # ==========================================
+                fb_page = next((p for p in database_fb if p['page_id'] == meta['fb_page_id']), None)
+                if fb_page:
+                    for d in active_tasks:
+                        if d['id'] == task_id: d['status'] = "Mengunggah ke Facebook... 🚀"
+                    save_tasks_db()
+                    
+                    fb_url = f"https://graph.facebook.com/v19.0/{fb_page['page_id']}/videos"
+                    fb_data = {
+                        'access_token': fb_page['access_token'],
+                        'title': meta['title'],
+                        'description': meta['description']
+                    }
+                    with open(out_file, 'rb') as f_vid:
+                        fb_files = {'file': f_vid}
+                        fb_res = requests.post(fb_url, data=fb_data, files=fb_files).json()
+                    
+                    if 'id' in fb_res:
+                        move_to_history(task_id, f"Tayang di FB! ✅ <a href='https://facebook.com/{fb_res['id']}' target='_blank'>[Lihat]</a>")
+                    else:
+                        raise Exception(f"FB Error: {fb_res.get('error', {}).get('message', 'Unknown Error')}")
+                else:
+                    move_to_history(task_id, "Gagal ❌ (Data Fanspage tidak ditemukan)")
             else: move_to_history(task_id, f"Render Selesai ✅ <a href='/{out_file}' target='_blank'>[Download]</a>")
         except Exception as e: move_to_history(task_id, f"Gagal ❌ ({str(e)})")
         finally: 
@@ -589,6 +627,65 @@ def handle_schedule_live():
     threading.Thread(target=run_live_stream, args=(t_id, stream_key, a_ps, v_ps, sched_start, sched_end, form_data, metadata)).start()
     
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
+
+# ==========================================
+# 🔵 FACEBOOK API ENDPOINTS
+# ==========================================
+@app.route('/api/get_fb_pages')
+def get_fb_pages():
+    return jsonify(database_fb)
+
+@app.route('/api/save_fb_page', methods=['POST'])
+def save_fb_page():
+    name = request.form.get('name')
+    p_id = request.form.get('page_id')
+    token = request.form.get('access_token')
+    
+    if not name or not p_id or not token:
+        return jsonify({"status": "error", "message": "Semua field FB wajib diisi!"})
+        
+    global database_fb
+    # Update if exists, else append
+    exists = False
+    for p in database_fb:
+        if p['page_id'] == p_id:
+            p['name'] = name; p['access_token'] = token; exists = True; break
+    if not exists:
+        database_fb.append({"name": name, "page_id": p_id, "access_token": token})
+    
+    save_fb_pages(database_fb)
+    return jsonify({"status": "success", "message": "Fanspage berhasil disimpan!"})
+
+@app.route('/api/delete_fb_page', methods=['POST'])
+def delete_fb_page():
+    p_id = request.form.get('page_id')
+    global database_fb
+    database_fb = [p for p in database_fb if p['page_id'] != p_id]
+    save_fb_pages(database_fb)
+    return jsonify({"status": "success", "message": "Fanspage dihapus!"})
+
+@app.route('/api/upload_fb', methods=['POST'])
+def handle_upload_fb():
+    t_id = int(time.time()); audios = request.files.getlist('audios'); bgs = request.files.getlist('background'); a_ps = []; v_ps = []
+    for i, a in enumerate(audios): 
+        if a.filename: p = f"uploads/fb_a_{t_id}_{i}.mp3"; a.save(p); a_ps.append(p)
+    for i, b in enumerate(bgs): 
+        if b.filename: p = f"uploads/fb_v_{t_id}_{i}{os.path.splitext(b.filename)[1]}"; b.save(p); v_ps.append(p)
+    
+    metadata = {
+        "fb_page_id": request.form.get('fb_page_select', ''), 
+        "title": request.form.get('title', ''), 
+        "description": request.form.get('description', ''), 
+    }
+    
+    loop_count = int(request.form.get('loop_count', 1))
+    active_tasks.append({"id": t_id, "type": "🔵 FB VOD", "title": metadata['title'], "time": "Langsung", "status": "In Queue ⏳"})
+    save_tasks_db()
+    
+    form_data = dict(request.form) 
+    render_queue.put({"id": t_id, "type": "🔵 FB VOD", "audio_paths": a_ps, "bg_paths": v_ps, "vis": form_data, "loop_count": loop_count, "metadata": metadata})
+    
+    return jsonify({"status": "success", "message": "Masuk Antrean FB Studio!"})
 
 @app.route('/api/check_secret')
 def check_secret(): return jsonify({"exists": os.path.exists(CLIENT_SECRETS_FILE)})
