@@ -538,7 +538,14 @@
             }).catch(e=>{});
         }
         function uploadSecret(e) { e.preventDefault(); fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) }).then(r => r.json()).then(d => { alert(d.message); checkApiStatus(); e.target.reset(); }); }
-        
+        function loadChannels() { 
+            fetch('/api/get_channels').then(r => r.json()).then(data => { 
+                cachedChannels = data; 
+                const dds_vod = document.getElementById('vod_channel_select'); const dds_live = document.getElementById('live_channel_select'); 
+                const vod_val = dds_vod.value; const live_val = dds_live.value; 
+                dds_vod.innerHTML = '<option value="">-- Pilih Channel --</option>'; dds_live.innerHTML = '<option value="">-- Pilih Channel --</option>'; 
+                data.forEach(ch => { dds_vod.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; dds_live.innerHTML += `<option value="${ch.yt_id}">${ch.name}</option>`; }); 
+                if(vod_val) { dds_vod.value = vod_val; } 
                 if(live_val) { dds_live.value = live_val; handleLiveChannelSelect(dds_live); } 
                 renderSettingsGrid(); 
             }); 
