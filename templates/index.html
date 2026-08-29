@@ -668,7 +668,7 @@
                                 </div>
 
                                 <!-- GAYA & FONT LIRIK -->
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                                     <div>
                                         <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">GAYA LIRIK</label>
                                         <select id="lrc_style" onchange="redrawStudioCanvas()" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:8px 10px; width:100%; margin:0;">
@@ -689,14 +689,46 @@
                                     </div>
                                 </div>
 
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
-                                    <div style="background:#1e293b; padding:8px 12px; border-radius:8px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="font-size:10px; font-weight:700; color:#94a3b8;">WARNA AKTIF</span>
-                                        <input type="color" id="lrc_color_active" value="#10b981" onchange="redrawStudioCanvas()" style="width:26px; height:22px; border:none; border-radius:4px; background:#0f172a; cursor:pointer; padding:0;">
+                                <!-- PENGATURAN POSISI & UKURAN LIRIK -->
+                                <div style="background:#1e293b; padding:12px; border-radius:10px; border:1px solid #334155; margin-bottom:14px; display:flex; flex-direction:column; gap:10px;">
+                                    <div style="font-size:11px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">
+                                        📐 Posisi & Ukuran Teks Lirik
                                     </div>
-                                    <div style="background:#1e293b; padding:8px 12px; border-radius:8px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="font-size:10px; font-weight:700; color:#94a3b8;">UKURAN FONT</span>
-                                        <input type="number" id="lrc_font_size" value="22" min="12" max="48" oninput="redrawStudioCanvas()" style="width:45px; background:#0f172a; border:1px solid #334155; color:#10b981; font-weight:700; text-align:center; border-radius:4px; padding:2px 4px; margin:0;">
+
+                                    <!-- X & Y POS -->
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div>
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                                <span style="font-size:10px; font-weight:700; color:#94a3b8;">POSISI X</span>
+                                                <span id="v_lrc_px" style="font-size:10px; font-family:monospace; color:#10b981; font-weight:700;">50%</span>
+                                            </div>
+                                            <input type="range" id="lrc_pos_x" min="0" max="100" value="50" oninput="uVal('v_lrc_px',this.value,'%'); redrawStudioCanvas();" style="margin:0;">
+                                        </div>
+                                        <div>
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                                <span style="font-size:10px; font-weight:700; color:#94a3b8;">POSISI Y</span>
+                                                <span id="v_lrc_py" style="font-size:10px; font-family:monospace; color:#10b981; font-weight:700;">78%</span>
+                                            </div>
+                                            <input type="range" id="lrc_pos_y" min="0" max="100" value="78" oninput="uVal('v_lrc_py',this.value,'%'); redrawStudioCanvas();" style="margin:0;">
+                                        </div>
+                                    </div>
+
+                                    <!-- FONT SIZE & ACTIVE COLOR -->
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div>
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                                <span style="font-size:10px; font-weight:700; color:#94a3b8;">UKURAN FONT</span>
+                                                <span id="v_lrc_sz" style="font-size:10px; font-family:monospace; color:#10b981; font-weight:700;">24px</span>
+                                            </div>
+                                            <input type="range" id="lrc_font_size" min="14" max="64" value="24" oninput="uVal('v_lrc_sz',this.value,'px'); redrawStudioCanvas();" style="margin:0;">
+                                        </div>
+                                        <div style="display:flex; flex-direction:column; justify-content:space-between;">
+                                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                                <span style="font-size:10px; font-weight:700; color:#94a3b8;">WARNA AKTIF</span>
+                                                <input type="color" id="lrc_color_active" value="#10b981" onchange="redrawStudioCanvas()" style="width:28px; height:22px; border:none; border-radius:4px; background:#0f172a; cursor:pointer; padding:0;">
+                                            </div>
+                                            <div style="font-size:10px; color:#64748b;">Highlight glow lirik</div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -2100,45 +2132,43 @@
                 if(activeLyric) {
                     const lrcStyle = document.getElementById('lrc_style')?.value || 'karaoke';
                     const lrcFont = document.getElementById('lrc_font')?.value || 'Segoe UI';
-                    const lrcSize = parseInt(document.getElementById('lrc_font_size')?.value || 22);
+                    const lrcSize = parseInt(document.getElementById('lrc_font_size')?.value || 24);
                     const lrcColor = document.getElementById('lrc_color_active')?.value || '#10b981';
+                    const lrcPosX = (parseFloat(document.getElementById('lrc_pos_x')?.value || 50) / 100) * W;
+                    const lrcPosY = (parseFloat(document.getElementById('lrc_pos_y')?.value || 78) / 100) * H;
 
                     ctx.save();
                     ctx.font = `bold ${lrcSize}px "${lrcFont}", sans-serif`;
                     ctx.textAlign = 'center';
-
-                    let lyricY = H * 0.78;
-                    if(lrcStyle === 'bottom') lyricY = H * 0.90;
-                    else if(lrcStyle === 'center') lyricY = H * 0.52;
 
                     if(lrcStyle === 'karaoke') {
                         // Glow Karaoke Pop
                         ctx.shadowColor = lrcColor;
                         ctx.shadowBlur = 16;
                         ctx.fillStyle = '#ffffff';
-                        ctx.fillText(activeLyric, W / 2, lyricY);
+                        ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                         ctx.fillStyle = lrcColor;
-                        ctx.fillText(activeLyric, W / 2, lyricY);
+                        ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                     } else if(lrcStyle === 'center') {
                         // Box Minimalis
                         const textW = ctx.measureText(activeLyric).width;
                         ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
                         ctx.beginPath();
-                        ctx.roundRect(W/2 - textW/2 - 16, lyricY - lrcSize + 2, textW + 32, lrcSize + 12, 8);
+                        ctx.roundRect(lrcPosX - textW/2 - 16, lrcPosY - lrcSize + 2, textW + 32, lrcSize + 12, 8);
                         ctx.fill();
                         ctx.strokeStyle = 'rgba(255,255,255,0.15)';
                         ctx.stroke();
 
                         ctx.fillStyle = lrcColor;
-                        ctx.fillText(activeLyric, W / 2, lyricY);
+                        ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                     } else {
                         // Modern Focus & Subtitle
                         ctx.fillStyle = '#000000';
                         ctx.shadowColor = 'rgba(0,0,0,0.85)';
                         ctx.shadowBlur = 8;
-                        ctx.fillText(activeLyric, W / 2, lyricY);
+                        ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                         ctx.fillStyle = lrcColor;
-                        ctx.fillText(activeLyric, W / 2, lyricY);
+                        ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                     }
                     ctx.restore();
                 }
