@@ -294,10 +294,11 @@
                         
                         <!-- TAB BUTTONS -->
                         <div style="display:flex; background:#0b0f19; border-bottom:1px solid #1e293b; padding:6px 8px; gap:4px;">
-                            <button type="button" class="studio-tab-btn active" onclick="switchStudioSubTab('media')" id="tab_btn_media" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Media</button>
-                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('visualizer')" id="tab_btn_visualizer" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Visualizer</button>
-                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('efek')" id="tab_btn_efek" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Efek</button>
-                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('render')" id="tab_btn_render" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s; background:rgba(16,185,129,0.1); color:#10b981;">Render</button>
+                            <button type="button" class="studio-tab-btn active" onclick="switchStudioSubTab('media')" id="tab_btn_media" style="flex:1; padding:8px 4px; font-size:11px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Media</button>
+                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('visualizer')" id="tab_btn_visualizer" style="flex:1; padding:8px 4px; font-size:11px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Visualizer</button>
+                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('efek')" id="tab_btn_efek" style="flex:1; padding:8px 4px; font-size:11px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Efek</button>
+                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('lirik')" id="tab_btn_lirik" style="flex:1; padding:8px 4px; font-size:11px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Lirik</button>
+                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('render')" id="tab_btn_render" style="flex:1; padding:8px 4px; font-size:11px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s; background:rgba(16,185,129,0.1); color:#10b981;">Render</button>
                         </div>
 
                         <!-- TAB CONTENTS -->
@@ -611,7 +612,76 @@
                                 </div>
                             </div>
 
-                            <!-- 4. TAB RENDER -->
+                            <!-- 4. TAB LIRIK -->
+                            <div id="subtab_lirik" class="studio-subtab" style="display:none;">
+                                <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                                    <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                    Synchronized Lyrics Engine
+                                </div>
+
+                                <!-- TOGGLE AKTIFKAN / NONAKTIFKAN LIRIK -->
+                                <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <span style="font-weight:700; font-size:13px; color:#f8fafc;">📝 Aktifkan Lirik di Video</span>
+                                        <small style="display:block; font-size:11px; color:#94a3b8;">Tampilkan teks lirik berirama di video</small>
+                                    </div>
+                                    <input type="checkbox" id="lrc_enable" checked onchange="redrawStudioCanvas()" style="width:18px; height:18px; accent-color:#10b981; cursor:pointer;">
+                                </div>
+
+                                <!-- TOMBOL AI TRANSKRIP ON-DEMAND (HANYA JALAN KETIKA DIKLIK) -->
+                                <div style="margin-bottom:16px;">
+                                    <button type="button" id="btn_ai_transcribe" onclick="triggerAiTranscribeLyrics()" style="width:100%; padding:12px; font-weight:800; font-size:13px; background:linear-gradient(135deg, #10b981, #0ea5e9); color:#ffffff; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 0 15px rgba(16,185,129,0.3); transition:0.2s;">
+                                        <span style="font-size:16px;">🤖</span>
+                                        <span id="txt_ai_btn">AI Transkrip Lirik Otomatis</span>
+                                    </button>
+                                    <small id="ai_status_msg" style="display:block; font-size:10px; color:#94a3b8; text-align:center; margin-top:4px;">Klik untuk AI mendengarkan lagu dan membuat lirik otomatis</small>
+                                </div>
+
+                                <!-- GAYA & FONT LIRIK -->
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+                                    <div>
+                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">GAYA LIRIK</label>
+                                        <select id="lrc_style" onchange="redrawStudioCanvas()" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:8px 10px; width:100%; margin:0;">
+                                            <option value="karaoke">🎤 Karaoke Glow</option>
+                                            <option value="spotify">🌟 Modern Focus</option>
+                                            <option value="bottom">📌 Subtitle Bawah</option>
+                                            <option value="center">🔲 Box Minimalis</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">FONT LIRIK</label>
+                                        <select id="lrc_font" onchange="redrawStudioCanvas()" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:8px 10px; width:100%; margin:0;">
+                                            <option value="Segoe UI">Segoe UI Modern</option>
+                                            <option value="Arial Black">Bold Impact</option>
+                                            <option value="Georgia">Classic Serif</option>
+                                            <option value="Courier New">Retro Typewriter</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+                                    <div style="background:#1e293b; padding:8px 12px; border-radius:8px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:10px; font-weight:700; color:#94a3b8;">WARNA AKTIF</span>
+                                        <input type="color" id="lrc_color_active" value="#10b981" onchange="redrawStudioCanvas()" style="width:26px; height:22px; border:none; border-radius:4px; background:#0f172a; cursor:pointer; padding:0;">
+                                    </div>
+                                    <div style="background:#1e293b; padding:8px 12px; border-radius:8px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:10px; font-weight:700; color:#94a3b8;">UKURAN FONT</span>
+                                        <input type="number" id="lrc_font_size" value="22" min="12" max="48" oninput="redrawStudioCanvas()" style="width:45px; background:#0f172a; border:1px solid #334155; color:#10b981; font-weight:700; text-align:center; border-radius:4px; padding:2px 4px; margin:0;">
+                                    </div>
+                                </div>
+
+                                <!-- EDITOR / PREVIEW FILE LRC -->
+                                <div style="margin-bottom:14px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">EDITOR LIRIK (.LRC)</span>
+                                        <label for="vod_lrc_file" style="font-size:10px; color:#0ea5e9; font-weight:700; cursor:pointer;">📁 Import .LRC</label>
+                                        <input type="file" id="vod_lrc_file" accept=".lrc,.txt" style="display:none;" onchange="handleLrcFileUpload(this)">
+                                    </div>
+                                    <textarea id="studio_lrc_editor" rows="6" oninput="parseLyricsFromEditor(); redrawStudioCanvas();" placeholder="[00:12.00] Baris lirik lagu..." style="width:100%; background:#0b0f19; border:1px solid #334155; border-radius:8px; padding:10px; color:#f8fafc; font-family:monospace; font-size:11px; line-height:1.5; resize:vertical; margin:0;"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- 5. TAB RENDER -->
                             <div id="subtab_render" class="studio-subtab" style="display:none;">
                                 <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
                                     <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
@@ -1785,6 +1855,65 @@
                 ctx.textAlign = 'left';
             }
 
+            // 4.5. SYNCHRONIZED LYRICS RENDERING
+            const isLrcEnabled = document.getElementById('lrc_enable') ? document.getElementById('lrc_enable').checked : true;
+            if(isLrcEnabled && window.studioLyricsData && window.studioLyricsData.length > 0) {
+                let activeLyric = "";
+                for(let i=0; i<window.studioLyricsData.length; i++) {
+                    if(timeSec >= window.studioLyricsData[i].time) {
+                        activeLyric = window.studioLyricsData[i].text;
+                    } else {
+                        break;
+                    }
+                }
+
+                if(activeLyric) {
+                    const lrcStyle = document.getElementById('lrc_style')?.value || 'karaoke';
+                    const lrcFont = document.getElementById('lrc_font')?.value || 'Segoe UI';
+                    const lrcSize = parseInt(document.getElementById('lrc_font_size')?.value || 22);
+                    const lrcColor = document.getElementById('lrc_color_active')?.value || '#10b981';
+
+                    ctx.save();
+                    ctx.font = `bold ${lrcSize}px "${lrcFont}", sans-serif`;
+                    ctx.textAlign = 'center';
+
+                    let lyricY = H * 0.78;
+                    if(lrcStyle === 'bottom') lyricY = H * 0.90;
+                    else if(lrcStyle === 'center') lyricY = H * 0.52;
+
+                    if(lrcStyle === 'karaoke') {
+                        // Glow Karaoke Pop
+                        ctx.shadowColor = lrcColor;
+                        ctx.shadowBlur = 16;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillText(activeLyric, W / 2, lyricY);
+                        ctx.fillStyle = lrcColor;
+                        ctx.fillText(activeLyric, W / 2, lyricY);
+                    } else if(lrcStyle === 'center') {
+                        // Box Minimalis
+                        const textW = ctx.measureText(activeLyric).width;
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                        ctx.beginPath();
+                        ctx.roundRect(W/2 - textW/2 - 16, lyricY - lrcSize + 2, textW + 32, lrcSize + 12, 8);
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                        ctx.stroke();
+
+                        ctx.fillStyle = lrcColor;
+                        ctx.fillText(activeLyric, W / 2, lyricY);
+                    } else {
+                        // Modern Focus & Subtitle
+                        ctx.fillStyle = '#000000';
+                        ctx.shadowColor = 'rgba(0,0,0,0.85)';
+                        ctx.shadowBlur = 8;
+                        ctx.fillText(activeLyric, W / 2, lyricY);
+                        ctx.fillStyle = lrcColor;
+                        ctx.fillText(activeLyric, W / 2, lyricY);
+                    }
+                    ctx.restore();
+                }
+            }
+
             // 5. POST-PROCESSING OVERLAYS
             // Neon Glow / Bass Pulse
             if(document.getElementById('fx_glow')?.checked && bassEnergy > 0.3) {
@@ -2385,6 +2514,93 @@
                 if(tInp) tInp.value = topCol;
             }
             redrawStudioCanvas();
+        }
+
+        // ==========================================
+        // 📝 SYNCHRONIZED LYRICS & AI TRANSCRIBE ENGINE
+        // ==========================================
+        window.studioLyricsData = [];
+
+        function parseLyricsFromEditor() {
+            const txt = document.getElementById('studio_lrc_editor')?.value || '';
+            const lines = txt.split('\n');
+            const segs = [];
+            lines.forEach(line => {
+                line = line.trim();
+                if(line.startsWith('[') && line.includes(']')) {
+                    const tag = line.substring(1, line.indexOf(']'));
+                    const lyric = line.substring(line.indexOf(']') + 1).trim();
+                    if(lyric && tag.includes(':')) {
+                        const parts = tag.split(':');
+                        const sec = parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+                        if(!isNaN(sec)) {
+                            segs.push({time: sec, text: lyric});
+                        }
+                    }
+                }
+            });
+            segs.sort((a, b) => a.time - b.time);
+            window.studioLyricsData = segs;
+        }
+
+        function handleLrcFileUpload(input) {
+            if(input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const editor = document.getElementById('studio_lrc_editor');
+                    if(editor) editor.value = e.target.result;
+                    parseLyricsFromEditor();
+                    redrawStudioCanvas();
+                };
+                reader.readAsText(input.files[0]);
+            }
+        }
+
+        function triggerAiTranscribeLyrics() {
+            const btn = document.getElementById('btn_ai_transcribe');
+            const txtBtn = document.getElementById('txt_ai_btn');
+            const msg = document.getElementById('ai_status_msg');
+            const title = document.getElementById('studio_project_title')?.value || '';
+            const audioInput = document.getElementById('vod_audio_input');
+
+            if(txtBtn) txtBtn.innerText = "⏳ AI Mendengarkan Lagu (1-2s)...";
+            if(msg) msg.innerText = "Mengirim audio ke Cloud AI Whisper...";
+            if(btn) btn.style.opacity = "0.7";
+
+            const fd = new FormData();
+            fd.append('title', title);
+            if(audioInput && audioInput.files && audioInput.files[0]) {
+                fd.append('audio', audioInput.files[0]);
+            }
+
+            fetch('/api/transcribe_lyrics', {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    const editor = document.getElementById('studio_lrc_editor');
+                    if(editor) editor.value = data.lrc || '';
+                    window.studioLyricsData = data.segments || [];
+                    if(txtBtn) txtBtn.innerText = "✅ Lirik Siap & Tersinkron!";
+                    if(msg) msg.innerText = "Lirik berhasil disinkronkan ke audio!";
+                    setTimeout(() => {
+                        if(txtBtn) txtBtn.innerText = "🤖 AI Transkrip Lirik Otomatis";
+                        if(btn) btn.style.opacity = "1.0";
+                    }, 3000);
+                    redrawStudioCanvas();
+                } else {
+                    if(txtBtn) txtBtn.innerText = "⚠️ Gagal Mendengarkan";
+                    if(msg) msg.innerText = data.message || "Pastikan audio sudah diupload.";
+                    if(btn) btn.style.opacity = "1.0";
+                }
+            })
+            .catch(err => {
+                if(txtBtn) txtBtn.innerText = "⚠️ Terjadi Kesalahan";
+                if(msg) msg.innerText = "Koneksi terputus. Silakan coba lagi.";
+                if(btn) btn.style.opacity = "1.0";
+            });
         }
 
         function toggleCanvasFullscreen() {
