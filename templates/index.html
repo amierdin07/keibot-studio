@@ -307,7 +307,7 @@
                             <!-- 1. TAB MEDIA -->
                             <div id="subtab_media" class="studio-subtab active">
                                 
-                                <!-- AUDIO SECTION -->
+                                <!-- 1. AUDIO SECTION -->
                                 <div style="margin-bottom:24px;">
                                     <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                                         <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
@@ -327,32 +327,47 @@
                                     </div>
                                 </div>
 
-                                <!-- KANVAS SECTION -->
+                                <!-- 2. BACKGROUND SECTION (DI BAWAH AUDIO) -->
                                 <div style="margin-bottom:24px;">
                                     <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                                         <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
-                                        Kanvas
+                                        Background
                                     </div>
-                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                    <div style="display:flex; background:#1e293b; border-radius:8px; padding:3px; gap:4px; margin-bottom:12px;">
+                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('color', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Color</button>
+                                        <button type="button" class="bg-mode-btn active" onclick="setBgMode('gradient', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:#10b981; color:#fff; cursor:pointer;">Gradient</button>
+                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('image', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Image</button>
+                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('video', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Video</button>
+                                    </div>
+                                    
+                                    <!-- Gradient Pickers -->
+                                    <div id="bg_gradient_ctrl" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                                         <div>
-                                            <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">RASIO</label>
-                                            <select id="studio_aspect_ratio" onchange="setStudioAspectRatio(this.value)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
-                                                <option value="16:9">Landscape 16:9</option>
-                                                <option value="9:16">Portrait 9:16</option>
-                                                <option value="1:1">Square 1:1</option>
-                                            </select>
+                                            <label style="font-size:10px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">GRADASI A</label>
+                                            <input type="color" id="studio_grad_a" value="#1a0b12" onchange="redrawStudioCanvas()" style="width:100%; height:36px; border:none; border-radius:6px; background:#1e293b; cursor:pointer; padding:0;">
                                         </div>
                                         <div>
-                                            <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">FPS</label>
-                                            <select id="studio_fps" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
-                                                <option value="30">30 fps</option>
-                                                <option value="60">60 fps</option>
-                                            </select>
+                                            <label style="font-size:10px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">GRADASI B</label>
+                                            <input type="color" id="studio_grad_b" value="#050308" onchange="redrawStudioCanvas()" style="width:100%; height:36px; border:none; border-radius:6px; background:#1e293b; cursor:pointer; padding:0;">
                                         </div>
+                                    </div>
+
+                                    <!-- Media File Upload -->
+                                    <div id="bg_file_ctrl" style="display:none; margin-top:10px;">
+                                        <label for="vod_bg_input" style="display:block; text-align:center; padding:12px; background:#1e293b; border:1px dashed #334155; border-radius:8px; font-size:12px; color:#94a3b8; cursor:pointer;">
+                                            📁 Pilih File Gambar / Video (.mp4, .jpg, .png)
+                                        </label>
+                                        <input type="file" name="background" id="vod_bg_input" multiple accept=".mp4,.jpg,.png" style="display:none;" onchange="handleStudioBgUpload(this)">
+                                        <span id="studio_bg_name" style="font-size:11px; color:#64748b; display:block; margin-top:4px;">Belum ada file media latar</span>
+                                    </div>
+                                    
+                                    <div style="margin-top:14px;">
+                                        <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">LOOPING (PENGGANDAAN)</label>
+                                        <input type="number" name="loop_count" id="vod_loop_count" min="1" value="1" oninput="updateTotalDuration('vod')" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 12px; border-radius:8px; width:100%; font-size:13px; font-weight:700; margin:0;">
                                     </div>
                                 </div>
 
-                                <!-- TEMPLATE SECTION -->
+                                <!-- 3. TEMPLATE SECTION -->
                                 <div style="margin-bottom:24px;">
                                     <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                                         <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
@@ -408,43 +423,28 @@
                                     </div>
                                 </div>
 
-                                <!-- BACKGROUND SECTION -->
-                                <div style="margin-bottom:20px;">
+                                <!-- 4. KANVAS SECTION -->
+                                <div style="margin-bottom:24px;">
                                     <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                                         <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
-                                        Background
+                                        Kanvas
                                     </div>
-                                    <div style="display:flex; background:#1e293b; border-radius:8px; padding:3px; gap:4px; margin-bottom:12px;">
-                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('color', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Color</button>
-                                        <button type="button" class="bg-mode-btn active" onclick="setBgMode('gradient', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:#10b981; color:#fff; cursor:pointer;">Gradient</button>
-                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('image', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Image</button>
-                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('video', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Video</button>
-                                    </div>
-                                    
-                                    <!-- Gradient Pickers -->
-                                    <div id="bg_gradient_ctrl" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                                         <div>
-                                            <label style="font-size:10px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">GRADASI A</label>
-                                            <input type="color" id="studio_grad_a" value="#1a0b12" onchange="redrawStudioCanvas()" style="width:100%; height:36px; border:none; border-radius:6px; background:#1e293b; cursor:pointer; padding:0;">
+                                            <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">RASIO</label>
+                                            <select id="studio_aspect_ratio" onchange="setStudioAspectRatio(this.value)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
+                                                <option value="16:9">Landscape 16:9</option>
+                                                <option value="9:16">Portrait 9:16</option>
+                                                <option value="1:1">Square 1:1</option>
+                                            </select>
                                         </div>
                                         <div>
-                                            <label style="font-size:10px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">GRADASI B</label>
-                                            <input type="color" id="studio_grad_b" value="#050308" onchange="redrawStudioCanvas()" style="width:100%; height:36px; border:none; border-radius:6px; background:#1e293b; cursor:pointer; padding:0;">
+                                            <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">FPS</label>
+                                            <select id="studio_fps" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
+                                                <option value="30">30 fps</option>
+                                                <option value="60">60 fps</option>
+                                            </select>
                                         </div>
-                                    </div>
-
-                                    <!-- Media File Upload -->
-                                    <div id="bg_file_ctrl" style="display:none; margin-top:10px;">
-                                        <label for="vod_bg_input" style="display:block; text-align:center; padding:12px; background:#1e293b; border:1px dashed #334155; border-radius:8px; font-size:12px; color:#94a3b8; cursor:pointer;">
-                                            📁 Pilih File Gambar / Video (.mp4, .jpg, .png)
-                                        </label>
-                                        <input type="file" name="background" id="vod_bg_input" multiple accept=".mp4,.jpg,.png" style="display:none;" onchange="handleStudioBgUpload(this)">
-                                        <span id="studio_bg_name" style="font-size:11px; color:#64748b; display:block; margin-top:4px;">Belum ada file media latar</span>
-                                    </div>
-                                    
-                                    <div style="margin-top:14px;">
-                                        <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">LOOPING (PENGGANDAAN)</label>
-                                        <input type="number" name="loop_count" id="vod_loop_count" min="1" value="1" oninput="updateTotalDuration('vod')" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 12px; border-radius:8px; width:100%; font-size:13px; font-weight:700; margin:0;">
                                     </div>
                                 </div>
                             </div>
