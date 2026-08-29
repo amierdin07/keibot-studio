@@ -356,24 +356,54 @@
                                 <div style="margin-bottom:24px;">
                                     <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                                         <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
-                                        Template
+                                        Template Player & Mockup
                                     </div>
+
+                                    <!-- TOGGLE AKTIFKAN / NONAKTIFKAN TEMPLATE -->
+                                    <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <span style="font-weight:700; font-size:13px; color:#f8fafc;">🎨 Aktifkan Template UI</span>
+                                            <small style="display:block; font-size:11px; color:#94a3b8;">Centang untuk menampilkan mockup player</small>
+                                        </div>
+                                        <input type="checkbox" id="tpl_enable" checked onchange="redrawStudioCanvas()" style="width:18px; height:18px; accent-color:#10b981; cursor:pointer;">
+                                    </div>
+
                                     <div style="display:flex; flex-direction:column; gap:8px;">
                                         <div class="studio-template-card active" onclick="selectStudioTemplate('classic', this)">
-                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Classic Player</h4>
-                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Kartu player + disc berputar + dot spectrum</p>
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">💿 Classic Vinyl Player</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Kartu player + disc vinyl berputar + spektrum</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('spotify', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">🎧 Spotify Player Bar</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Mockup player Spotify + bar progress musik</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('cassette', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">📻 Retro Cassette Tape</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Kaset pita vintage 80s dengan roda berputar</p>
                                         </div>
                                         <div class="studio-template-card" onclick="selectStudioTemplate('neon', this)">
-                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Neon Bars</h4>
-                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Lirik karaoke glow + bar spectrum mirror</p>
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">⚡ Cyberpunk Neon HUD</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Bingkai neon futuristik glow + audio reaction</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('trap', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">⭕ Trap Nation Aura</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Lingkaran bass getar tengah + logo aura</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('podcast', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">🎙️ Podcast Audiogram</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Badge episode podcast + gelombang simetris</p>
                                         </div>
                                         <div class="studio-template-card" onclick="selectStudioTemplate('minimal', this)">
-                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Minimal Center</h4>
-                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Satu baris lirik besar di tengah</p>
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">🔲 Minimalist Clean</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Tipografi modern minimalis tanpa kartu</p>
                                         </div>
                                         <div class="studio-template-card" onclick="selectStudioTemplate('reels', this)">
-                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Reels 9:16</h4>
-                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Vertikal untuk TikTok / Shorts</p>
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">📱 Reels & TikTok (9:16)</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Vertikal sinematik untuk TikTok / Shorts</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('none', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">🚫 Tanpa Template (Pure Visual)</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Hanya background, spektrum, dan efek partikel</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1735,8 +1765,24 @@
 
             // 4. TEMPLATE RENDERING
             const titleText = document.getElementById('studio_project_title')?.value || "Untitled Lyric Video";
+            const isTplEnabled = document.getElementById('tpl_enable') ? document.getElementById('tpl_enable').checked : true;
 
-            if(studioTemplate === 'classic') {
+            if(!isTplEnabled || studioTemplate === 'none') {
+                // Pure Visualizer Spectrum (No card mockup)
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'modern-bars';
+                    const posX = (parseFloat(document.getElementById('vod_pos_x')?.value || 50) / 100) * W;
+                    const posY = (parseFloat(document.getElementById('vod_pos_y')?.value || 85) / 100) * H;
+                    const specW = (parseFloat(document.getElementById('vod_width_pct')?.value || 60) / 100) * W;
+                    const limitH = (parseFloat(document.getElementById('vod_max_height')?.value || 40) / 100) * H;
+                    const barCount = parseInt(document.getElementById('vod_bar_count')?.value || 48);
+                    const barGap = parseInt(document.getElementById('vod_spacing')?.value || 3);
+                    const idleH = parseFloat(document.getElementById('vod_idle_height')?.value || 5);
+
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, posX, posY, specW, limitH, barCount, barGap, idleH, bassEnergy, timeSec, W, H);
+                }
+
+            } else if(studioTemplate === 'classic') {
                 // Classic Player Disc + Card Mockup
                 const cardW = 560;
                 const cardH = 260;
@@ -1805,6 +1851,190 @@
                     const idleH = parseFloat(document.getElementById('vod_idle_height')?.value || 5);
 
                     renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, posX, posY, specW, limitH, barCount, barGap, idleH, bassEnergy, timeSec, W, H);
+                }
+
+            } else if(studioTemplate === 'spotify') {
+                // Spotify Player Bar (Bottom Floating Card)
+                const cardW = Math.min(780, W * 0.85);
+                const cardH = 110;
+                const cardX = (W - cardW) / 2;
+                const cardY = H - cardH - 50;
+
+                ctx.fillStyle = 'rgba(18, 18, 18, 0.88)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+                ctx.fill();
+                ctx.stroke();
+
+                // Album Art Box
+                ctx.fillStyle = botColor;
+                ctx.beginPath();
+                ctx.roundRect(cardX + 16, cardY + 15, 80, 80, 10);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '28px Segoe UI';
+                ctx.fillText('🎵', cardX + 42, cardY + 65);
+
+                // Title & Artist
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 20px Segoe UI, sans-serif';
+                ctx.fillText(titleText, cardX + 115, cardY + 46);
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 14px Segoe UI, sans-serif';
+                ctx.fillText('KeiBot Spotify Verified Artist', cardX + 115, cardY + 70);
+
+                // Progress Bar
+                const curTime = (studioAudio && studioAudio.currentTime) ? studioAudio.currentTime : 0;
+                const totalDur = (studioAudio && studioAudio.duration) ? studioAudio.duration : 180;
+                const pct = totalDur > 0 ? (curTime / totalDur) : 0.35;
+                const barX = cardX + 115;
+                const barY = cardY + 84;
+                const barW = cardW - 145;
+
+                ctx.fillStyle = '#334155';
+                ctx.beginPath();
+                ctx.roundRect(barX, barY, barW, 6, 3);
+                ctx.fill();
+
+                ctx.fillStyle = '#10b981';
+                ctx.beginPath();
+                ctx.roundRect(barX, barY, barW * pct, 6, 3);
+                ctx.fill();
+
+                // Visualizer above card
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'waveform-glow';
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, cardY - 40, cardW, H*0.25, 48, 3, 4, bassEnergy, timeSec, W, H);
+                }
+
+            } else if(studioTemplate === 'cassette') {
+                // Retro Cassette Tape
+                const casW = 440;
+                const casH = 260;
+                const casX = (W - casW) / 2;
+                const casY = (H - casH) / 2 - 20;
+
+                // Cassette Body
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = botColor;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(casX, casY, casW, casH, 16);
+                ctx.fill();
+                ctx.stroke();
+
+                // Cassette Label
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.roundRect(casX + 30, casY + 30, casW - 60, 100, 8);
+                ctx.fill();
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = 'bold 18px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(titleText, W / 2, casY + 65);
+                ctx.fillStyle = botColor;
+                ctx.font = 'bold 12px "Courier New", monospace';
+                ctx.fillText('◄◄  STEREO HI-FI 60 MIN  ►►', W / 2, casY + 95);
+                ctx.textAlign = 'left';
+
+                // Spools
+                const spL = casX + 130;
+                const spR = casX + casW - 130;
+                const spY = casY + 180;
+                const rot = timeSec * 2.5;
+
+                [spL, spR].forEach(spX => {
+                    ctx.save();
+                    ctx.translate(spX, spY);
+                    ctx.rotate(rot);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 30, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+
+                    // Teeth
+                    for(let t=0; t<6; t++) {
+                        ctx.rotate(Math.PI / 3);
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(-3, -28, 6, 8);
+                    }
+                    ctx.restore();
+                });
+
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'modern-bars';
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, H*0.82, W*0.6, H*0.2, 40, 3, 3, bassEnergy, timeSec, W, H);
+                }
+
+            } else if(studioTemplate === 'trap') {
+                // Trap Nation Pulsing Center Aura
+                const centerX = W / 2;
+                const centerY = H / 2 - 20;
+                const baseR = 100 + bassEnergy * 50;
+
+                // Glowing Aura Circles
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, baseR + 30, 0, Math.PI * 2);
+                ctx.fillStyle = botColor;
+                ctx.globalAlpha = 0.15 + bassEnergy * 0.3;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, baseR, 0, Math.PI * 2);
+                ctx.fillStyle = '#090d16';
+                ctx.globalAlpha = 0.95;
+                ctx.fill();
+                ctx.strokeStyle = botColor;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.restore();
+
+                // Logo/Title inside
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 24px Segoe UI, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(titleText, centerX, centerY + 8);
+                ctx.textAlign = 'left';
+
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'trap-nation';
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, centerX, centerY, baseR * 2, H*0.35, 48, 4, 6, bassEnergy, timeSec, W, H);
+                }
+
+            } else if(studioTemplate === 'podcast') {
+                // Podcast Audiogram Box
+                const boxW = 540;
+                const boxH = 200;
+                const boxX = (W - boxW) / 2;
+                const boxY = (H - boxH) / 2 - 30;
+
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(boxX, boxY, boxW, boxH, 16);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 12px Segoe UI, sans-serif';
+                ctx.fillText('🎙️ OFFICIAL PODCAST / EPISODE', boxX + 24, boxY + 40);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 26px Segoe UI, sans-serif';
+                ctx.fillText(titleText, boxX + 24, boxY + 76);
+
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'podcast';
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, boxY + 135, boxW - 48, 50, 36, 4, 4, bassEnergy, timeSec, W, H);
                 }
 
             } else if(studioTemplate === 'neon') {
