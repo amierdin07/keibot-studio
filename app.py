@@ -69,8 +69,105 @@ def get_system_stats():
 # ==========================================
 DB_FILE = 'channels_db.json'
 TASKS_FILE = 'tasks_db.json'
+SECRETS_DIR = 'secrets_pool'
+SECRETS_DB = 'secrets_db.json'
 CLIENT_SECRETS_FILE = "client_secret.json"
 SCOPES = ['https://www.googleapis.com/auth/youtube', 'https://www.googleapis.com/auth/youtube.upload']
+
+os.makedirs(SECRETS_DIR, exist_ok=True)
+
+def load_secrets_db():
+    if os.path.exists(SECRETS_DB):
+        try:
+            with open(SECRETS_DB, 'r') as f:
+                return json.load(f)
+        except: pass
+    
+    # Auto-migrate existing client_secret.json if found
+    initial_secrets = []
+    if os.path.exists(CLIENT_SECRETS_FILE):
+        try:
+            with open(CLIENT_SECRETS_FILE, 'r') as f:
+                s_data = json.load(f)
+            conf = s_data.get('installed', s_data.get('web', {}))
+            c_id = conf.get('client_id', '')
+            p_id = conf.get('project_id', 'GCP-Project-1')
+            if c_id:
+                dest = os.path.join(SECRETS_DIR, "secret_main.json")
+                shutil.copy(CLIENT_SECRETS_FILE, dest)
+                initial_secrets.append({
+                    "id": "secret_main",
+                    "name": f"Project 1 ({p_id})",
+                    "file_path": dest,
+                    "client_id": c_id,
+                    "project_id": p_id,
+                    "status": "Active 🟢",
+                    "quota_exceeded": False,
+                    "upload_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+        except: pass
+    
+    return {
+        "active_id": initial_secrets[0]['id'] if initial_secrets else "",
+        "auto_rotate": True,
+        "secrets": initial_secrets
+    }
+
+def save_secrets_db(data):
+    with open(SECRETS_DB, 'w') as f:
+        json.dump(data, f, indent=4)
+    # Sync active secret to CLIENT_SECRETS_FILE for backwards compatibility
+    active_sec = get_active_secret_obj(data)
+    if active_sec and os.path.exists(active_sec.get('file_path', '')):
+        try:
+            shutil.copy(active_sec['file_path'], CLIENT_SECRETS_FILE)
+        except: pass
+    elif not active_sec and os.path.exists(CLIENT_SECRETS_FILE):
+        try: os.remove(CLIENT_SECRETS_FILE)
+        except: pass
+
+def get_active_secret_obj(data=None):
+    if data is None:
+        data = load_secrets_db()
+    active_id = data.get('active_id')
+    secrets = data.get('secrets', [])
+    for s in secrets:
+        if s.get('id') == active_id:
+            return s
+    if secrets:
+        return secrets[0]
+    return None
+
+def rotate_to_next_secret(reason="quota_exceeded"):
+    """
+    Automatically rotate active client secret to the next standby secret with available quota.
+    """
+    data = load_secrets_db()
+    secrets = data.get('secrets', [])
+    if not secrets or len(secrets) <= 1:
+        return None
+    
+    current_active_id = data.get('active_id')
+    for s in secrets:
+        if s.get('id') == current_active_id:
+            if reason == "quota_exceeded":
+                s['quota_exceeded'] = True
+                s['status'] = "Quota Exceeded 🔴"
+                s['quota_error_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Find candidate that is NOT current and NOT quota_exceeded
+    candidate = None
+    for s in secrets:
+        if s.get('id') != current_active_id and not s.get('quota_exceeded', False):
+            candidate = s
+            break
+    
+    if candidate:
+        data['active_id'] = candidate['id']
+        candidate['status'] = "Active 🟢"
+        save_secrets_db(data)
+        return candidate
+    return None
 
 def load_tasks_db():
     if os.path.exists(TASKS_FILE):
@@ -316,7 +413,16 @@ def background_worker():
                 
                 move_to_history(task_id, f"Tayang! ✅ <a href='https://youtu.be/{video_id}' target='_blank'>[Lihat]</a>")
             else: move_to_history(task_id, f"Render Selesai ✅ <a href='/{out_file}' target='_blank'>[Download]</a>")
-        except Exception as e: move_to_history(task_id, f"Gagal ❌ ({str(e)})")
+        except Exception as e:
+            err_str = str(e).lower()
+            if "quota" in err_str or "ratelimit" in err_str or "403" in err_str or "exceeded" in err_str:
+                rotated = rotate_to_next_secret("quota_exceeded")
+                if rotated:
+                    move_to_history(task_id, f"Kuota Habis ⚠️ Auto-Rotasi ke API Key: {rotated.get('name')}. API Key otomatis diganti.")
+                else:
+                    move_to_history(task_id, f"Gagal ❌ Kuota Semua API Key Habis ({str(e)})")
+            else:
+                move_to_history(task_id, f"Gagal ❌ ({str(e)})")
         finally: 
             try: os.remove(f"uploads/base_a_{task_id}.mp3"); os.remove(f"uploads/base_v_{task_id}.mp4")
             except: pass
@@ -739,26 +845,156 @@ def handle_schedule_live():
     
     return jsonify({"status": "success", "message": "Live Engine Dijadwalkan!"})
 
+@app.route('/api/get_secrets')
+def get_secrets():
+    data = load_secrets_db()
+    return jsonify({
+        "status": "success",
+        "active_id": data.get('active_id', ''),
+        "auto_rotate": data.get('auto_rotate', True),
+        "secrets": data.get('secrets', [])
+    })
+
 @app.route('/api/check_secret')
-def check_secret(): return jsonify({"exists": os.path.exists(CLIENT_SECRETS_FILE)})
+def check_secret():
+    data = load_secrets_db()
+    secrets = data.get('secrets', [])
+    active_sec = get_active_secret_obj(data)
+    exists = bool(active_sec and os.path.exists(active_sec.get('file_path', ''))) or os.path.exists(CLIENT_SECRETS_FILE)
+    return jsonify({
+        "exists": exists,
+        "count": len(secrets),
+        "active_name": active_sec.get('name', 'Belum ada API Key') if active_sec else '',
+        "active_id": active_sec.get('id', '') if active_sec else '',
+        "quota_exceeded": active_sec.get('quota_exceeded', False) if active_sec else False
+    })
 
 @app.route('/api/upload_secret', methods=['POST'])
 def upload_secret():
-    file = request.files.get('secret_file')
-    if file and file.filename.endswith('.json'):
-        file.save(CLIENT_SECRETS_FILE)
-        return jsonify({"status": "success", "message": "API Key Google berhasil diunggah!"})
-    return jsonify({"status": "error", "message": "Gagal! Pastikan file berekstensi .json"})
+    files = request.files.getlist('secret_files')
+    if not files or len(files) == 0 or (len(files) == 1 and not files[0].filename):
+        f_single = request.files.get('secret_file')
+        if f_single and f_single.filename:
+            files = [f_single]
+    
+    if not files or len(files) == 0 or not files[0].filename:
+        return jsonify({"status": "error", "message": "Pilih file client_secret.json terlebih dahulu!"})
+    
+    data = load_secrets_db()
+    added_count = 0
+    
+    for f in files:
+        if f and f.filename and f.filename.endswith('.json'):
+            try:
+                content = f.read()
+                s_data = json.loads(content.decode('utf-8'))
+                conf = s_data.get('installed', s_data.get('web', {}))
+                c_id = conf.get('client_id', '')
+                p_id = conf.get('project_id', f"GCP-Project-{len(data.get('secrets', [])) + 1}")
+                
+                if not c_id:
+                    continue
+                
+                sec_id = f"sec_{int(time.time())}_{random.randint(100,999)}"
+                dest_path = os.path.join(SECRETS_DIR, f"{sec_id}.json")
+                with open(dest_path, 'wb') as out_f:
+                    out_f.write(content)
+                
+                new_sec = {
+                    "id": sec_id,
+                    "name": f"Project {len(data.get('secrets', [])) + 1} ({p_id})",
+                    "file_path": dest_path,
+                    "client_id": c_id,
+                    "project_id": p_id,
+                    "status": "Standby 🟡" if data.get('secrets') else "Active 🟢",
+                    "quota_exceeded": False,
+                    "upload_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                
+                if not data.get('secrets'):
+                    data['active_id'] = sec_id
+                    new_sec['status'] = "Active 🟢"
+                
+                data['secrets'].append(new_sec)
+                added_count += 1
+            except Exception as e:
+                print(f"Error parsing secret file: {e}")
+    
+    if added_count > 0:
+        save_secrets_db(data)
+        return jsonify({
+            "status": "success",
+            "message": f"Berhasil menambahkan {added_count} Client Secret ke Pool!",
+            "count": len(data['secrets'])
+        })
+    return jsonify({"status": "error", "message": "Gagal! Pastikan file adalah client_secret.json OAuth 2.0 yang valid."})
+
+@app.route('/api/set_active_secret', methods=['POST'])
+def set_active_secret():
+    sec_id = request.form.get('secret_id') or (request.json and request.json.get('secret_id'))
+    data = load_secrets_db()
+    found = False
+    for s in data.get('secrets', []):
+        if s['id'] == sec_id:
+            s['status'] = "Active 🟢"
+            data['active_id'] = sec_id
+            found = True
+        else:
+            if s.get('status') == "Active 🟢":
+                s['status'] = "Standby 🟡"
+    if found:
+        save_secrets_db(data)
+        return jsonify({"status": "success", "message": "API Key aktif berhasil diubah!"})
+    return jsonify({"status": "error", "message": "Secret ID tidak ditemukan."})
+
+@app.route('/api/delete_secret', methods=['POST'])
+def delete_secret():
+    sec_id = request.form.get('secret_id') or (request.json and request.json.get('secret_id'))
+    data = load_secrets_db()
+    secrets = data.get('secrets', [])
+    to_delete = next((s for s in secrets if s['id'] == sec_id), None)
+    if to_delete:
+        try:
+            if os.path.exists(to_delete.get('file_path', '')):
+                os.remove(to_delete['file_path'])
+        except: pass
+        data['secrets'] = [s for s in secrets if s['id'] != sec_id]
+        if data.get('active_id') == sec_id:
+            data['active_id'] = data['secrets'][0]['id'] if data['secrets'] else ""
+            if data['secrets']:
+                data['secrets'][0]['status'] = "Active 🟢"
+        save_secrets_db(data)
+        return jsonify({"status": "success", "message": "API Key berhasil dihapus dari Pool!"})
+    return jsonify({"status": "error", "message": "Secret tidak ditemukan."})
+
+@app.route('/api/reset_secret_quota', methods=['POST'])
+def reset_secret_quota():
+    sec_id = request.form.get('secret_id') or (request.json and request.json.get('secret_id'))
+    data = load_secrets_db()
+    for s in data.get('secrets', []):
+        if not sec_id or s['id'] == sec_id or sec_id == 'all':
+            s['quota_exceeded'] = False
+            if s['id'] == data.get('active_id'):
+                s['status'] = "Active 🟢"
+            else:
+                s['status'] = "Standby 🟡"
+            s['quota_error_time'] = ""
+    save_secrets_db(data)
+    return jsonify({"status": "success", "message": "Status kuota API Key berhasil di-reset!"})
 
 @app.route('/api/generate_tv_link')
 def generate_tv_link():
-    if not os.path.exists(CLIENT_SECRETS_FILE): return jsonify({"auth_url": "", "error": "File client_secret.json belum diupload!"})
+    sec = get_active_secret_obj()
+    sec_path = sec['file_path'] if sec and os.path.exists(sec.get('file_path', '')) else CLIENT_SECRETS_FILE
+    if not os.path.exists(sec_path): return jsonify({"auth_url": "", "error": "File client_secret.json belum diupload!"})
     return jsonify({"auth_url": f"http://{request.host}/device_login"})
 
 @app.route('/device_login')
 def device_login():
-    if not os.path.exists(CLIENT_SECRETS_FILE): return "File rahasia tidak ditemukan!"
-    with open(CLIENT_SECRETS_FILE, 'r') as f:
+    sec = get_active_secret_obj()
+    sec_path = sec['file_path'] if sec and os.path.exists(sec.get('file_path', '')) else CLIENT_SECRETS_FILE
+    if not os.path.exists(sec_path): return "File rahasia tidak ditemukan!"
+    with open(sec_path, 'r') as f:
         secret_data = json.load(f); client_config = secret_data.get('installed', secret_data.get('web', {})); client_id = client_config.get('client_id')
     res = requests.post('https://oauth2.googleapis.com/device/code', data={'client_id': client_id, 'scope': ' '.join(SCOPES)}).json()
     if 'error' in res: return f"Error Google: {res['error']}"
@@ -819,7 +1055,9 @@ def device_login():
 @app.route('/api/poll_device_token', methods=['POST'])
 def poll_device_token():
     device_code = request.json.get('device_code')
-    with open(CLIENT_SECRETS_FILE, 'r') as f:
+    sec = get_active_secret_obj()
+    sec_path = sec['file_path'] if sec and os.path.exists(sec.get('file_path', '')) else CLIENT_SECRETS_FILE
+    with open(sec_path, 'r') as f:
         s_data = json.load(f); conf = s_data.get('installed', s_data.get('web', {})); c_id = conf.get('client_id'); c_sec = conf.get('client_secret')
     res = requests.post('https://oauth2.googleapis.com/token', data={'client_id': c_id, 'client_secret': c_sec, 'device_code': device_code, 'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'}).json()
     

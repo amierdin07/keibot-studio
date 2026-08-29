@@ -220,14 +220,24 @@
             <div style="background:var(--bg-panel); padding:30px; border-radius:var(--radius); border:1px solid var(--border); box-shadow:var(--shadow); margin-bottom: 30px; position:relative; overflow:hidden;">
                 <div style="position:absolute; top:0; left:0; width:6px; height:100%; background:var(--secondary);"></div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3 style="margin:0; font-size:16px;">🔑 Google OAuth 2.0 API</h3>
+                    <div>
+                        <h3 style="margin:0; font-size:18px; display:flex; align-items:center; gap:8px;">
+                            🔑 Google API Key Pool & Auto-Rotation
+                            <span style="font-size:11px; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:2px 8px; border-radius:12px; font-weight:700;">⚡ Multi-Project Quota</span>
+                        </h3>
+                        <p style="font-size:13px; color:var(--text-muted); margin:4px 0 0;">Upload satu atau banyak <b>client_secret.json</b> sekaligus. Saat kuota 10.000 unit/hari habis, KeiBot otomatis berpindah ke API Key berikutnya!</p>
+                    </div>
                     <span id="api_status_badge" style="background:var(--bg-input); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; border:1px solid var(--border);">Mengecek...</span>
                 </div>
-                <p style="font-size:13px; color:var(--text-muted); margin-top:0;">Wajib upload <b>client_secret.json</b> (Tipe: TVs and Limited Input devices) agar KeiBot bisa mengelola channel Anda.</p>
-                <form id="apiUploadForm" onsubmit="uploadSecret(event)" style="display:flex; gap:15px; align-items:center; margin-top:20px;">
-                    <input type="file" name="secret_file" accept=".json" required style="flex-grow:1; margin:0;">
-                    <button type="submit" class="btn-gold" style="width:200px; margin:0; padding:12px;">UPLOAD API KEY</button>
+
+                <!-- UPLOAD MULTIPLE SECRETS FORM -->
+                <form id="apiUploadForm" onsubmit="uploadSecret(event)" style="display:flex; gap:12px; align-items:center; margin-top:16px; background:#0b0f19; padding:12px; border-radius:10px; border:1px dashed var(--border);">
+                    <input type="file" name="secret_files" accept=".json" multiple required style="flex-grow:1; margin:0; background:transparent; border:none; color:#f8fafc; font-size:13px; cursor:pointer;">
+                    <button type="submit" class="btn-gold" style="width:220px; margin:0; padding:10px 16px; font-size:12px; font-weight:800;">➕ TAMBAH KE POOL</button>
                 </form>
+
+                <!-- POOL SECRETS LIST -->
+                <div id="secretsPoolList" style="margin-top:20px; display:flex; flex-direction:column; gap:10px;"></div>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -1128,15 +1138,132 @@
             setTimeout(() => { inp.style.boxShadow = "none"; }, 800);
         }
 
-        // --- MANAJEMEN CHANNEL & SETTINGS ---
+        // --- MANAJEMEN API KEY POOL & CHANNEL SETTINGS ---
         function checkApiStatus() {
             fetch('/api/check_secret?t=' + new Date().getTime()).then(r=>r.json()).then(d=>{
                 const b = document.getElementById('api_status_badge');
-                if(d.exists) { b.innerText = "🟢 API AKTIF"; b.style.background = "rgba(16,185,129,0.1)"; b.style.color = "var(--primary)"; b.style.borderColor = "var(--primary)"; } 
-                else { b.innerText = "🔴 BELUM ADA API"; b.style.background = "rgba(239,68,68,0.1)"; b.style.color = "var(--danger)"; b.style.borderColor = "var(--danger)"; }
+                if(d.exists) {
+                    b.innerText = `🟢 ${d.count || 1} API KEY TERPASANG`;
+                    b.style.background = "rgba(16,185,129,0.1)";
+                    b.style.color = "var(--primary)";
+                    b.style.borderColor = "var(--primary)";
+                } else {
+                    b.innerText = "🔴 BELUM ADA API";
+                    b.style.background = "rgba(239,68,68,0.1)";
+                    b.style.color = "var(--danger)";
+                    b.style.borderColor = "var(--danger)";
+                }
+                loadSecretsPool();
             }).catch(e=>{});
         }
-        function uploadSecret(e) { e.preventDefault(); fetch('/api/upload_secret', { method: 'POST', body: new FormData(e.target) }).then(r => r.json()).then(d => { alert(d.message); checkApiStatus(); e.target.reset(); }); }
+
+        function loadSecretsPool() {
+            fetch('/api/get_secrets?t=' + new Date().getTime()).then(r => r.json()).then(data => {
+                const container = document.getElementById('secretsPoolList');
+                if(!container) return;
+                if(!data.secrets || data.secrets.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-muted); font-size:12px; border:1px solid var(--border); border-radius:8px;">Belum ada client_secret.json di dalam pool. Silakan upload API Key di atas.</div>`;
+                    return;
+                }
+
+                let html = '';
+                data.secrets.forEach((sec, idx) => {
+                    const isActive = sec.id === data.active_id;
+                    const isExceeded = sec.quota_exceeded === true;
+                    
+                    let badgeBg = isActive ? 'rgba(16,185,129,0.15)' : (isExceeded ? 'rgba(239,68,68,0.15)' : 'rgba(14,165,233,0.1)');
+                    let badgeColor = isActive ? '#10b981' : (isExceeded ? '#ef4444' : '#0ea5e9');
+                    let badgeText = isActive ? '🟢 AKTIF DIGUNAKAN' : (isExceeded ? '🔴 KUOTA HABIS (AUTO-ROTASI)' : '🟡 STANDBY (SIAP ROTASI)');
+                    let borderCol = isActive ? '#10b981' : (isExceeded ? '#ef4444' : 'var(--border)');
+
+                    const maskedCid = sec.client_id ? (sec.client_id.substring(0, 16) + '...' + sec.client_id.substring(sec.client_id.length - 12)) : 'Client ID Hidden';
+
+                    html += `
+                    <div style="background:var(--bg-input); border:1px solid ${borderCol}; border-radius:10px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; transition:0.2s;">
+                        <div style="display:flex; align-items:center; gap:14px;">
+                            <div style="width:36px; height:36px; border-radius:8px; background:${badgeBg}; display:flex; align-items:center; justify-content:center; font-size:18px;">
+                                ${isActive ? '⚡' : (isExceeded ? '⚠️' : '🔑')}
+                            </div>
+                            <div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-weight:800; font-size:13px; color:var(--text-main);">${sec.name || 'GCP Project ' + (idx+1)}</span>
+                                    <span style="font-size:10px; font-weight:700; background:${badgeBg}; color:${badgeColor}; border:1px solid ${badgeColor}; padding:2px 8px; border-radius:10px;">${badgeText}</span>
+                                </div>
+                                <div style="font-size:11px; font-family:monospace; color:var(--text-muted); margin-top:2px;">
+                                    Client ID: <span style="color:#94a3b8;">${maskedCid}</span> • Upload: ${sec.upload_time || '-'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            ${!isActive ? `<button type="button" onclick="setActiveSecret('${sec.id}')" style="background:#10b981; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:11px; font-weight:700; cursor:pointer;">Jadikan Aktif</button>` : ''}
+                            ${isExceeded ? `<button type="button" onclick="resetSecretQuota('${sec.id}')" style="background:#0ea5e9; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:11px; font-weight:700; cursor:pointer;">Reset Kuota</button>` : ''}
+                            <button type="button" onclick="deleteSecret('${sec.id}')" style="background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.3); border-radius:6px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer;" title="Hapus API Key">🗑️</button>
+                        </div>
+                    </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }).catch(e=>{});
+        }
+
+        function uploadSecret(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const oldTxt = btn.innerText;
+            btn.innerText = "Mengunggah...";
+            btn.disabled = true;
+
+            fetch('/api/upload_secret', {
+                method: 'POST',
+                body: new FormData(e.target)
+            })
+            .then(r => r.json())
+            .then(d => {
+                alert(d.message);
+                checkApiStatus();
+                e.target.reset();
+                btn.innerText = oldTxt;
+                btn.disabled = false;
+            })
+            .catch(err => {
+                alert("Gagal mengunggah file!");
+                btn.innerText = oldTxt;
+                btn.disabled = false;
+            });
+        }
+
+        function setActiveSecret(secId) {
+            const fd = new FormData();
+            fd.append('secret_id', secId);
+            fetch('/api/set_active_secret', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                checkApiStatus();
+            });
+        }
+
+        function deleteSecret(secId) {
+            if(confirm("Yakin ingin menghapus API Key ini dari Pool?")) {
+                const fd = new FormData();
+                fd.append('secret_id', secId);
+                fetch('/api/delete_secret', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(d => {
+                    checkApiStatus();
+                });
+            }
+        }
+
+        function resetSecretQuota(secId) {
+            const fd = new FormData();
+            fd.append('secret_id', secId);
+            fetch('/api/reset_secret_quota', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                checkApiStatus();
+            });
+        }
         
         function loadChannels() { 
             fetch('/api/get_channels').then(r => r.json()).then(data => { 
@@ -2238,14 +2365,18 @@
             const barW = Math.max(2, (width / count) - (gap || 3));
             const startX = x - width / 2;
 
-            if(type === 'modern-bars' || type === 'classic-bars') {
+            const isRainbow = window.spectrumColorMode === 'rainbow' || type === 'rgb-bars';
+
+            if(type === 'modern-bars' || type === 'classic-bars' || type === 'rgb-bars') {
                 for(let i=0; i<count; i++) {
                     const val = (freqs[i % freqs.length] / 255);
                     const h = Math.max(idleH, val * maxH);
                     const bx = startX + i * (barW + gap);
+                    const cBot = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 55%)` : botColor;
+                    const cTop = isRainbow ? `hsl(${(i * (360 / count) + time * 60 + 50) % 360}, 100%, 65%)` : topColor;
                     const grad = ctx.createLinearGradient(0, y, 0, y - h);
-                    grad.addColorStop(0, botColor);
-                    grad.addColorStop(1, topColor);
+                    grad.addColorStop(0, cBot);
+                    grad.addColorStop(1, cTop);
                     ctx.fillStyle = grad;
                     ctx.beginPath();
                     ctx.roundRect(bx, y - h, barW, h, [3, 3, 0, 0]);
@@ -2259,32 +2390,23 @@
                     const val = (freqs[i % freqs.length] / 255);
                     const h = Math.max(idleH, val * maxH);
                     const bx = startX + i * (barW + gap);
-                    ctx.fillStyle = botColor;
+                    ctx.fillStyle = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 60%)` : botColor;
                     ctx.beginPath();
                     ctx.roundRect(bx, y - h/2, barW, h, 4);
                     ctx.fill();
                 }
                 ctx.restore();
-            } else if(type === 'rgb-bars') {
-                for(let i=0; i<count; i++) {
-                    const val = (freqs[i % freqs.length] / 255);
-                    const h = Math.max(idleH, val * maxH);
-                    const bx = startX + i * (barW + gap);
-                    const hue = (i * (360 / count) + time * 60) % 360;
-                    ctx.fillStyle = `hsl(${hue}, 100%, 55%)`;
-                    ctx.beginPath();
-                    ctx.roundRect(bx, y - h, barW, h, [2, 2, 0, 0]);
-                    ctx.fill();
-                }
             } else if(type === 'mirror-bars') {
                 for(let i=0; i<count; i++) {
                     const val = (freqs[i % freqs.length] / 255);
                     const h = Math.max(idleH, val * maxH * 0.7);
                     const bx = startX + i * (barW + gap);
+                    const cBot = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 55%)` : botColor;
+                    const cTop = isRainbow ? `hsl(${(i * (360 / count) + time * 60 + 50) % 360}, 100%, 65%)` : topColor;
                     const grad = ctx.createLinearGradient(0, y - h, 0, y + h);
-                    grad.addColorStop(0, topColor);
-                    grad.addColorStop(0.5, botColor);
-                    grad.addColorStop(1, topColor);
+                    grad.addColorStop(0, cTop);
+                    grad.addColorStop(0.5, cBot);
+                    grad.addColorStop(1, cTop);
                     ctx.fillStyle = grad;
                     ctx.beginPath();
                     ctx.roundRect(bx, y - h, barW, h * 2, 3);
@@ -2302,15 +2424,15 @@
                 ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
                 ctx.fill();
                 ctx.lineWidth = 4 + (bassEnergy * 8);
-                ctx.strokeStyle = botColor;
-                ctx.shadowColor = botColor;
+                ctx.strokeStyle = isRainbow ? `hsl(${(time * 80) % 360}, 100%, 60%)` : botColor;
+                ctx.shadowColor = ctx.strokeStyle;
                 ctx.shadowBlur = 18;
                 ctx.stroke();
 
                 // Inner Speaker Center
                 ctx.beginPath();
                 ctx.arc(centerX, centerY, radius * 0.5, 0, Math.PI * 2);
-                ctx.fillStyle = botColor;
+                ctx.fillStyle = isRainbow ? `hsl(${(time * 80 + 120) % 360}, 100%, 55%)` : botColor;
                 ctx.fill();
                 ctx.restore();
 
@@ -2324,7 +2446,7 @@
                     const x2 = centerX + Math.cos(angle) * (radius + barLen);
                     const y2 = centerY + Math.sin(angle) * (radius + barLen);
 
-                    ctx.strokeStyle = (i % 2 === 0) ? botColor : topColor;
+                    ctx.strokeStyle = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 55%)` : ((i % 2 === 0) ? botColor : topColor);
                     ctx.lineWidth = Math.max(2, (Math.PI * 2 * radius / count) - 2);
                     ctx.lineCap = "round";
                     ctx.beginPath();
@@ -2349,11 +2471,13 @@
                     else ctx.lineTo(px, py);
                 }
                 ctx.closePath();
+                const cBot = isRainbow ? `hsl(${(time * 80) % 360}, 100%, 55%)` : botColor;
+                const cTop = isRainbow ? `hsl(${(time * 80 + 90) % 360}, 100%, 65%)` : topColor;
                 const grad = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, baseR * 1.6);
-                grad.addColorStop(0, botColor);
-                grad.addColorStop(1, topColor);
+                grad.addColorStop(0, cBot);
+                grad.addColorStop(1, cTop);
                 ctx.fillStyle = grad;
-                ctx.shadowColor = botColor;
+                ctx.shadowColor = cBot;
                 ctx.shadowBlur = 20;
                 ctx.fill();
                 ctx.restore();
@@ -2362,16 +2486,16 @@
                     const val = (freqs[i % freqs.length] / 255);
                     const h = Math.max(idleH, val * maxH * 0.6);
                     const bx = startX + i * (barW + gap);
-                    ctx.fillStyle = botColor;
+                    ctx.fillStyle = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 55%)` : botColor;
                     ctx.beginPath();
                     ctx.roundRect(bx, y - h, barW, h * 2, barW / 2);
                     ctx.fill();
                 }
             } else if(type === 'waveform-glow' || type === 'oscilloscope') {
                 ctx.save();
-                ctx.strokeStyle = botColor;
+                ctx.strokeStyle = isRainbow ? `hsl(${(time * 80) % 360}, 100%, 60%)` : botColor;
                 ctx.lineWidth = 3;
-                ctx.shadowColor = botColor;
+                ctx.shadowColor = ctx.strokeStyle;
                 ctx.shadowBlur = 12;
                 ctx.beginPath();
                 for(let i=0; i<count; i++) {
@@ -2383,6 +2507,28 @@
                 }
                 ctx.stroke();
                 ctx.restore();
+            } else if(type === 'round-caps' || type === 'capsule-glow') {
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH);
+                    const bx = startX + i * (barW + gap);
+                    ctx.fillStyle = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 55%)` : botColor;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, y - h, barW, h, barW / 2);
+                    ctx.fill();
+                }
+            } else if(type === 'particles' || type === 'stardust-vis') {
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH);
+                    const bx = startX + i * (barW + gap);
+                    const by = y - h - (Math.sin(time * 3 + i) * 15);
+                    const sz = Math.max(2, val * 10);
+                    ctx.fillStyle = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 60%)` : botColor;
+                    ctx.beginPath();
+                    ctx.arc(bx + barW/2, by, sz, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             } else if(type === 'radial') {
                 const cx = x;
                 const cy = y - 40;
@@ -2786,6 +2932,7 @@
             redrawStudioCanvas();
         }
 
+        window.spectrumColorMode = 'gradient';
         function setVisualizerPalette(mode, botCol, topCol, el) {
             document.querySelectorAll('.vis-palette-chip').forEach(c => {
                 c.classList.remove('active');
@@ -2797,8 +2944,9 @@
             }
 
             if(botCol === 'rainbow') {
-                document.getElementById(mode + '_spectrum_type').value = 'rgb-bars';
+                window.spectrumColorMode = 'rainbow';
             } else {
+                window.spectrumColorMode = 'gradient';
                 const bInp = document.getElementById(mode + '_color_bot');
                 const tInp = document.getElementById(mode + '_color_top');
                 if(bInp) bInp.value = botCol;
