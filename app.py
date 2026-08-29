@@ -494,7 +494,14 @@ def transcribe_lyrics():
     # 2. Fast Global Synced Lyrics Lookup (LRCLIB fallback)
     query = song_title or (audio_file.filename if audio_file else '')
     if query:
-        clean_query = os.path.splitext(query)[0].replace('_', ' ').replace('-', ' ').strip()
+        clean_query = os.path.splitext(query)[0]
+        # Remove common noise in YouTube titles
+        for noise in ['(Official Music Video)', '(Official Video)', '(Music Video)', '(Lyric Video)', '(Official Audio)', '[Official Video]', '[MV]', 'MV', '(Visualizer)', 'Official']:
+            clean_query = clean_query.replace(noise, '')
+            clean_query = clean_query.replace(noise.lower(), '')
+            clean_query = clean_query.replace(noise.upper(), '')
+        clean_query = clean_query.replace('_', ' ').replace('-', ' ').strip()
+
         try:
             resp = requests.get('https://lrclib.net/api/search', params={'q': clean_query}, timeout=10)
             if resp.status_code == 200:
@@ -502,6 +509,7 @@ def transcribe_lyrics():
                 if hits and isinstance(hits, list):
                     for hit in hits:
                         synced_lrc = hit.get('syncedLyrics', '')
+                        plain_lyrics = hit.get('plainLyrics', '')
                         if synced_lrc:
                             # Parse LRC into segments
                             segments = []
@@ -521,6 +529,25 @@ def transcribe_lyrics():
                                     "status": "success",
                                     "source": "lrclib_synced",
                                     "lrc": synced_lrc,
+                                    "segments": segments
+                                })
+                        elif plain_lyrics:
+                            # Auto-time plain lyrics roughly across audio duration
+                            lines = [l.strip() for l in plain_lyrics.split('\n') if l.strip()]
+                            segments = []
+                            lrc_out = []
+                            interval = 6.0
+                            for idx, pline in enumerate(lines[:40]):
+                                t_sec = 10.0 + idx * interval
+                                segments.append({"time": t_sec, "text": pline})
+                                mins = int(t_sec // 60)
+                                secs = int(t_sec % 60)
+                                lrc_out.append(f"[{mins:02d}:{secs:02d}.00] {pline}")
+                            if segments:
+                                return jsonify({
+                                    "status": "success",
+                                    "source": "plain_timed",
+                                    "lrc": "\n".join(lrc_out),
                                     "segments": segments
                                 })
         except Exception as e:

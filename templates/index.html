@@ -739,7 +739,15 @@
                                         <label for="vod_lrc_file" style="font-size:10px; color:#0ea5e9; font-weight:700; cursor:pointer;">📁 Import .LRC</label>
                                         <input type="file" id="vod_lrc_file" accept=".lrc,.txt" style="display:none;" onchange="handleLrcFileUpload(this)">
                                     </div>
-                                    <textarea id="studio_lrc_editor" rows="6" oninput="parseLyricsFromEditor(); redrawStudioCanvas();" placeholder="[00:12.00] Baris lirik lagu..." style="width:100%; background:#0b0f19; border:1px solid #334155; border-radius:8px; padding:10px; color:#f8fafc; font-family:monospace; font-size:11px; line-height:1.5; resize:vertical; margin:0;"></textarea>
+                                    <textarea id="studio_lrc_editor" rows="6" oninput="parseLyricsFromEditor(); redrawStudioCanvas();" placeholder="[00:12.00] Baris lirik lagu..." style="width:100%; background:#0b0f19; border:1px solid #334155; border-radius:8px; padding:10px; color:#f8fafc; font-family:monospace; font-size:11px; line-height:1.5; resize:vertical; margin:0;">[00:05.00] ♪ Musik Dimulai
+[00:12.00] Melangkah di antara bayang waktu
+[00:20.00] Mengikuti alunan melodi kalbu
+[00:30.00] Setiap nada mengukir cerita
+[00:45.00] Bersama irama yang takkan sirna
+[01:00.00] Dengarkan ritme jiwa bernyanyi
+[01:30.00] Menemani langkah hingga malam nanti
+[02:00.00] Menghanyutkan rasa di dalam nada
+[02:30.00] Bersama bayangmu yang tak pernah sirna</textarea>
                                 </div>
                             </div>
 
@@ -1795,6 +1803,18 @@
             const topColor = document.getElementById('vod_color_top')?.value || '#0ea5e9';
             const isVisEnabled = document.getElementById('vod_vis_enable') ? document.getElementById('vod_vis_enable').checked : true;
 
+            // 3.5. SYNCHRONIZED LYRICS CALCULATION
+            let activeLyric = "";
+            if(window.studioLyricsData && window.studioLyricsData.length > 0) {
+                for(let i=0; i<window.studioLyricsData.length; i++) {
+                    if(timeSec >= window.studioLyricsData[i].time) {
+                        activeLyric = window.studioLyricsData[i].text;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
             // 4. TEMPLATE RENDERING
             const titleText = document.getElementById('studio_project_title')?.value || "Untitled Lyric Video";
             const isTplEnabled = document.getElementById('tpl_enable') ? document.getElementById('tpl_enable').checked : true;
@@ -1869,7 +1889,7 @@
 
                 ctx.fillStyle = '#10b981';
                 ctx.font = 'bold 16px Segoe UI, sans-serif';
-                ctx.fillText('♪ Menghanyutkan rasa di dalam nada...', cardX + 220, cardY + 160);
+                ctx.fillText(activeLyric || '♪ Menghanyutkan rasa di dalam nada...', cardX + 220, cardY + 160);
 
                 // Visualizer Spectrum Rendering on Canvas (if enabled)
                 if(isVisEnabled) {
@@ -2142,9 +2162,18 @@
                     ctx.textAlign = 'center';
 
                     if(lrcStyle === 'karaoke') {
-                        // Glow Karaoke Pop
+                        // Glow Karaoke Pop with dark pill background for 100% contrast
+                        const textW = ctx.measureText(activeLyric).width;
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                        ctx.beginPath();
+                        ctx.roundRect(lrcPosX - textW/2 - 18, lrcPosY - lrcSize + 2, textW + 36, lrcSize + 14, 10);
+                        ctx.fill();
+                        ctx.strokeStyle = lrcColor;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+
                         ctx.shadowColor = lrcColor;
-                        ctx.shadowBlur = 16;
+                        ctx.shadowBlur = 18;
                         ctx.fillStyle = '#ffffff';
                         ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                         ctx.fillStyle = lrcColor;
@@ -2152,21 +2181,23 @@
                     } else if(lrcStyle === 'center') {
                         // Box Minimalis
                         const textW = ctx.measureText(activeLyric).width;
-                        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
                         ctx.beginPath();
-                        ctx.roundRect(lrcPosX - textW/2 - 16, lrcPosY - lrcSize + 2, textW + 32, lrcSize + 12, 8);
+                        ctx.roundRect(lrcPosX - textW/2 - 20, lrcPosY - lrcSize + 2, textW + 40, lrcSize + 14, 8);
                         ctx.fill();
-                        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
                         ctx.stroke();
 
                         ctx.fillStyle = lrcColor;
                         ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                     } else {
                         // Modern Focus & Subtitle
-                        ctx.fillStyle = '#000000';
-                        ctx.shadowColor = 'rgba(0,0,0,0.85)';
-                        ctx.shadowBlur = 8;
-                        ctx.fillText(activeLyric, lrcPosX, lrcPosY);
+                        const textW = ctx.measureText(activeLyric).width;
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                        ctx.beginPath();
+                        ctx.roundRect(lrcPosX - textW/2 - 14, lrcPosY - lrcSize + 2, textW + 28, lrcSize + 12, 6);
+                        ctx.fill();
+
                         ctx.fillStyle = lrcColor;
                         ctx.fillText(activeLyric, lrcPosX, lrcPosY);
                     }
@@ -2820,11 +2851,16 @@
             const btn = document.getElementById('btn_ai_transcribe');
             const txtBtn = document.getElementById('txt_ai_btn');
             const msg = document.getElementById('ai_status_msg');
-            const title = document.getElementById('studio_project_title')?.value || '';
             const audioInput = document.getElementById('vod_audio_input');
+            const projectTitle = document.getElementById('studio_project_title')?.value || '';
+            const trackTitle = document.getElementById('tl_audio_title')?.innerText || '';
+            const finalTitle = document.getElementById('vod_final_title')?.value || '';
+            const fileName = (audioInput && audioInput.files && audioInput.files[0]) ? audioInput.files[0].name : '';
+            
+            const title = projectTitle || trackTitle || finalTitle || fileName;
 
-            if(txtBtn) txtBtn.innerText = "⏳ AI Mendengarkan Lagu (1-2s)...";
-            if(msg) msg.innerText = "Mengirim audio ke Cloud AI Whisper...";
+            if(txtBtn) txtBtn.innerText = "⏳ AI Mencari / Mentranskrip...";
+            if(msg) msg.innerText = `Sedang memproses lirik: "${title || 'Lagu'}"...`;
             if(btn) btn.style.opacity = "0.7";
 
             const fd = new FormData();
@@ -2842,13 +2878,13 @@
                 if(data.status === 'success') {
                     const editor = document.getElementById('studio_lrc_editor');
                     if(editor) editor.value = data.lrc || '';
-                    window.studioLyricsData = data.segments || [];
+                    parseLyricsFromEditor();
                     if(txtBtn) txtBtn.innerText = "✅ Lirik Siap & Tersinkron!";
-                    if(msg) msg.innerText = "Lirik berhasil disinkronkan ke audio!";
+                    if(msg) msg.innerText = `Lirik berhasil dimuat (${window.studioLyricsData.length} baris)!`;
                     setTimeout(() => {
                         if(txtBtn) txtBtn.innerText = "🤖 AI Transkrip Lirik Otomatis";
                         if(btn) btn.style.opacity = "1.0";
-                    }, 3000);
+                    }, 4000);
                     redrawStudioCanvas();
                 } else {
                     if(txtBtn) txtBtn.innerText = "⚠️ Gagal Mendengarkan";
@@ -2883,6 +2919,7 @@
         function initApp() {
             injectVisualizer('visVodStudio', 'vod');
             injectVisualizer('visLive', 'live');
+            parseLyricsFromEditor();
             loadChannels();
             fetchAnalyticsData();
             checkApiStatus();
