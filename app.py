@@ -13,7 +13,7 @@ import json
 import datetime as dt
 from datetime import datetime
 import requests
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 
 # ==========================================
 # 🛡️ AUTO-SETUP DEPENDENCIES & MONITORING MURNI
@@ -407,6 +407,19 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
 # ==========================================
 @app.route('/')
 def index(): return render_template('index.html')
+
+@app.route('/studio')
+@app.route('/studio/')
+def serve_studio_index():
+    return send_from_directory(os.path.join(app.root_path, 'static', 'studio_ui'), 'index.html')
+
+@app.route('/studio/assets/<path:filename>')
+def serve_studio_assets(filename):
+    return send_from_directory(os.path.join(app.root_path, 'static', 'studio_ui', 'assets'), filename)
+
+@app.route('/studio/<path:filename>')
+def serve_studio_static(filename):
+    return send_from_directory(os.path.join(app.root_path, 'static', 'studio_ui'), filename)
 
 @app.route('/api/get_dashboard_stats')
 def get_dashboard_stats():

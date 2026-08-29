@@ -107,6 +107,18 @@
         .channel-info { display: flex; align-items: center; gap: 15px; }
         .channel-info img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--primary); padding: 2px; }
         .key-item { display: flex; justify-content: space-between; background: var(--bg-input); padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); align-items: center; }
+
+        /* STUDIO UI PRO STYLES */
+        .studio-tab-btn { background: transparent; color: #94a3b8; }
+        .studio-tab-btn:hover { color: #f8fafc; background: #1e293b; }
+        .studio-tab-btn.active { background: #1e293b; color: #10b981; }
+
+        .studio-template-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: 0.2s; }
+        .studio-template-card:hover { border-color: #10b981; transform: translateY(-2px); }
+        .studio-template-card.active { border-color: #10b981; background: rgba(16,185,129,0.08); box-shadow: 0 0 15px rgba(16,185,129,0.15); }
+
+        .fx-toggle-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; transition: 0.2s; }
+        .fx-toggle-card:hover { border-color: #475569; }
     </style>
 </head>
 <body onload="initApp()">
@@ -234,73 +246,569 @@
             <div class="settings-grid" id="settingsGrid"></div>
         </div>
 
-        <div id="upload" class="panel">
-            <h2 style="margin-top:0; font-size: 24px; font-weight: 800; color:var(--secondary);">VOD Render Studio</h2>
-            <p style="margin:5px 0 25px; color:var(--text-muted); font-size:13px;">Render video offline secara otomatis dan jadwalkan upload.</p>
+        <!-- ========================================== -->
+        <!-- 🎬 VOD RENDER STUDIO (MODERN PRO UI)       -->
+        <!-- ========================================== -->
+        <div id="upload" class="panel" style="padding:0; background:#0b0f19; border:1px solid #1e293b; border-radius:16px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.3); color:#f8fafc;">
             
-            <form id="formUpload" onsubmit="submitForm(event, '/api/upload_vod')">
-                <div style="background:var(--bg-input); padding:25px; border-radius:12px; border:1px solid var(--border); margin-bottom:20px;">
-                    <label style="font-weight:700; font-size:13px; color:var(--text-main);">Target Channel</label>
-                    <select name="channel_select" id="vod_channel_select" required onchange="fetchPlaylists(this.value, 'vod_playlist_select');"></select>
-                    
-                    <div class="grid-3" style="margin-top: 20px;">
-                        <div><label style="font-weight:700; font-size:12px;">Audio Playlist (Multi)</label><input type="file" name="audios" id="vod_audio_input" multiple accept=".mp3,.wav" required onchange="calcAudioDuration(this, 'vod_dur_info')"><small id="vod_dur_info" style="color:var(--text-muted); display:block; font-family:monospace; margin-top:8px;">Durasi Asli: 00:00:00</small></div>
-                        <div><label style="font-weight:700; font-size:12px;">Background Video/Image</label><input type="file" name="background" multiple accept=".mp4,.jpg,.png" required></div>
-                        <div><label style="font-weight:700; font-size:12px;">Looping (Penggandaan)</label><input type="number" name="loop_count" id="vod_loop_count" min="1" value="1" required oninput="updateTotalDuration('vod')"><small id="vod_total_info" style="color:var(--secondary); display:block; font-family:monospace; font-weight:bold; margin-top:8px;">Estimasi Final: 00:00:00</small></div>
+            <!-- TOP BAR -->
+            <div style="background:#0f172a; border-bottom:1px solid #1e293b; padding:12px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:18px; font-weight:900; color:#ffffff; letter-spacing:-0.5px;">KeiBot <span style="color:#10b981;">Render</span></span>
+                    </div>
+                    <input type="text" id="studio_project_title" value="Untitled Lyric Video" oninput="syncStudioTitle(this.value)" style="background:#1e293b; border:1px solid #334155; color:#ffffff; font-weight:700; font-size:13px; border-radius:8px; padding:8px 14px; width:220px; outline:none; margin:0;">
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" onclick="studioUndo()" title="Undo" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; border-radius:6px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;">↩️</button>
+                        <button type="button" onclick="studioRedo()" title="Redo" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; border-radius:6px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;">↪️</button>
                     </div>
                 </div>
 
-                <div style="background:rgba(16, 185, 129, 0.05); border:1px dashed var(--primary); padding:20px; border-radius:12px; margin-bottom:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <label style="font-weight:800; color:var(--primary); font-size:14px; display:block;">🎲 Auto-Spin Judul Pintar</label>
-                            <small style="color:var(--text-muted); font-size:11px;">Menarik judul dari file .txt di Settings Channel</small>
-                        </div>
-                        <button type="button" onclick="generateAutoTitle('vod')" style="background:var(--primary); color:white; border:none; padding:10px 25px; font-weight:800; font-size:12px; border-radius:8px; cursor:pointer; box-shadow:0 4px 10px rgba(16,185,129,0.3); transition:0.2s;">SPIN JUDUL</button>
-                    </div>
+                <!-- Transport Play Controls -->
+                <div style="display:flex; align-items:center; gap:14px;">
+                    <button type="button" onclick="seekStudioRelative(-5)" title="Rewind 5s" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; border-radius:8px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;">⏮️</button>
+                    <button type="button" id="studio_play_btn" onclick="toggleStudioPlay()" title="Play/Pause" style="background:#10b981; border:none; color:#ffffff; border-radius:10px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; box-shadow:0 0 15px rgba(16,185,129,0.4); transition:0.2s;">▶</button>
+                    <button type="button" onclick="seekStudioRelative(5)" title="Forward 5s" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; border-radius:8px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;">⏭️</button>
                     
-                    <div style="margin-top:15px; border-top:1px solid rgba(16, 185, 129, 0.2); padding-top:15px;">
-                        <span style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Akhiran Judul Otomatis (Klik untuk aktifkan):</span>
-                        <div id="tags_vod">
-                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{tag}">🏷️ Input Tag</span>
-                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{hari}">📅 Hari (Indo)</span>
-                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{day}">📆 Day (Eng)</span>
-                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{bulan}">🌙 Bulan (Indo)</span>
-                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{month}">🌒 Month (Eng)</span>
-                            <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{tahun}">🎯 Tahun/Year</span>
-                        </div>
-                    </div>
-                </div>
+                    <span id="studio_timecode" style="font-family:monospace; font-size:13px; font-weight:700; color:#94a3b8; margin:0 6px;">0:00 / 0:00</span>
+                    
+                    <select id="studio_speed" onchange="setStudioPlaybackRate(this.value)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-weight:700; font-size:12px; border-radius:8px; padding:6px 10px; margin:0; width:auto; cursor:pointer;">
+                        <option value="1">1x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2x</option>
+                    </select>
 
-                <div style="border-top: 1px solid var(--border); padding-top: 25px;">
-                    <h3 style="font-size:15px; margin-top:0;">📝 YouTube Metadata</h3>
-                    <div class="grid-3">
-                        <div style="grid-column: span 2;"><label style="font-weight:600; font-size:12px;">Judul Video</label><input type="text" name="title" required></div>
-                        <div><label style="font-weight:600; font-size:12px;">Thumbnail Custom</label><input type="file" name="thumbnail" accept=".jpg,.png,.jpeg"></div>
-                    </div>
-                    <div class="grid-3" style="margin-top: 15px;">
-                        <div style="grid-column: span 2;"><label style="font-weight:600; font-size:12px;">Deskripsi Video</label><textarea name="description" rows="4"></textarea></div>
-                        <div>
-                            <label style="font-weight:600; font-size:12px;">Tags (Koma)</label><input type="text" name="tags" placeholder="Lofi, Relax, Chill">
-                            <label style="font-weight:600; font-size:12px; margin-top:10px; display:block;">Pilih Playlist</label><select name="playlist" id="vod_playlist_select"><option value="">-- Pilih Channel --</option></select>
-                        </div>
-                    </div>
-                    <div class="grid-3" style="margin-top:15px;">
-                        <div><label style="font-weight:600; font-size:12px;">Jadwal Tayang (Kosongkan = Langsung)</label><input type="datetime-local" name="schedule"></div>
-                        <div>
-                            <label style="font-weight:600; font-size:12px;">Privasi Video</label>
-                            <select name="privacy" style="color:var(--primary); font-weight:bold;">
-                                <option value="public">🌍 Public (Publik)</option>
-                                <option value="unlisted">🔗 Unlisted (Tidak Publik)</option>
-                                <option value="private">🔒 Private (Pribadi)</option>
-                            </select>
-                        </div>
+                    <div style="background:#1e293b; border:1px solid #334155; color:#94a3b8; font-size:12px; font-weight:700; padding:6px 12px; border-radius:8px;">
+                        100 BPM
                     </div>
                 </div>
-                <div class="vis-box" id="visVod" style="margin-top:25px;"></div>
-                <button type="submit" class="btn-gold">🚀 TAMBAHKAN KE ANTREAN RENDER</button>
+            </div>
+
+            <!-- MAIN WORKSPACE: LEFT SIDEBAR + CANVAS + TIMELINE -->
+            <form id="formUpload" onsubmit="submitForm(event, '/api/upload_vod')" style="margin:0;">
+                <div style="display:flex; height:680px;">
+                    
+                    <!-- LEFT TABBED SIDEBAR -->
+                    <div style="width:340px; min-width:340px; background:#0f172a; border-right:1px solid #1e293b; display:flex; flex-direction:column; overflow:hidden;">
+                        
+                        <!-- TAB BUTTONS -->
+                        <div style="display:flex; background:#0b0f19; border-bottom:1px solid #1e293b; padding:6px 8px; gap:4px;">
+                            <button type="button" class="studio-tab-btn active" onclick="switchStudioSubTab('media')" id="tab_btn_media" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Media</button>
+                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('visualizer')" id="tab_btn_visualizer" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Visualizer</button>
+                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('efek')" id="tab_btn_efek" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s;">Efek</button>
+                            <button type="button" class="studio-tab-btn" onclick="switchStudioSubTab('render')" id="tab_btn_render" style="flex:1; padding:8px 6px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:0.2s; background:rgba(16,185,129,0.1); color:#10b981;">Render</button>
+                        </div>
+
+                        <!-- TAB CONTENTS -->
+                        <div style="flex:1; overflow-y:auto; padding:20px 16px;">
+                            
+                            <!-- 1. TAB MEDIA -->
+                            <div id="subtab_media" class="studio-subtab active">
+                                
+                                <!-- AUDIO SECTION -->
+                                <div style="margin-bottom:24px;">
+                                    <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                        <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                        Audio
+                                    </div>
+                                    <label for="vod_audio_input" style="display:flex; align-items:center; justify-content:center; gap:10px; background:#1e293b; border:1px dashed #334155; border-radius:10px; padding:16px; cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#334155'">
+                                        <span style="font-size:18px;">🎧</span>
+                                        <div style="text-align:left;">
+                                            <span style="font-size:13px; font-weight:700; color:#f8fafc; display:block;">Upload lagu (mp3/wav/m4a)</span>
+                                            <span id="studio_audio_name" style="font-size:11px; color:#94a3b8;">Klik untuk memilih file audio</span>
+                                        </div>
+                                    </label>
+                                    <input type="file" name="audios" id="vod_audio_input" multiple accept=".mp3,.wav,.m4a" required style="display:none;" onchange="handleStudioAudioUpload(this)">
+                                    <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px; font-family:monospace; color:#64748b;">
+                                        <span id="vod_dur_info">Durasi: 00:00:00</span>
+                                        <span id="vod_total_info" style="color:#0ea5e9;">Final: 00:00:00</span>
+                                    </div>
+                                </div>
+
+                                <!-- KANVAS SECTION -->
+                                <div style="margin-bottom:24px;">
+                                    <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                        <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                        Kanvas
+                                    </div>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div>
+                                            <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">RASIO</label>
+                                            <select id="studio_aspect_ratio" onchange="setStudioAspectRatio(this.value)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
+                                                <option value="16:9">Landscape 16:9</option>
+                                                <option value="9:16">Portrait 9:16</option>
+                                                <option value="1:1">Square 1:1</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">FPS</label>
+                                            <select id="studio_fps" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:12px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
+                                                <option value="30">30 fps</option>
+                                                <option value="60">60 fps</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- TEMPLATE SECTION -->
+                                <div style="margin-bottom:24px;">
+                                    <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                        <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                        Template
+                                    </div>
+                                    <div style="display:flex; flex-direction:column; gap:8px;">
+                                        <div class="studio-template-card active" onclick="selectStudioTemplate('classic', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Classic Player</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Kartu player + disc berputar + dot spectrum</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('neon', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Neon Bars</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Lirik karaoke glow + bar spectrum mirror</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('minimal', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Minimal Center</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Satu baris lirik besar di tengah</p>
+                                        </div>
+                                        <div class="studio-template-card" onclick="selectStudioTemplate('reels', this)">
+                                            <h4 style="margin:0 0 2px; font-size:13px; font-weight:700; color:#f8fafc;">Reels 9:16</h4>
+                                            <p style="margin:0; font-size:11px; color:#94a3b8;">Vertikal untuk TikTok / Shorts</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- BACKGROUND SECTION -->
+                                <div style="margin-bottom:20px;">
+                                    <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                        <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                        Background
+                                    </div>
+                                    <div style="display:flex; background:#1e293b; border-radius:8px; padding:3px; gap:4px; margin-bottom:12px;">
+                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('color', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Color</button>
+                                        <button type="button" class="bg-mode-btn active" onclick="setBgMode('gradient', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:#10b981; color:#fff; cursor:pointer;">Gradient</button>
+                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('image', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Image</button>
+                                        <button type="button" class="bg-mode-btn" onclick="setBgMode('video', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Video</button>
+                                    </div>
+                                    
+                                    <!-- Gradient Pickers -->
+                                    <div id="bg_gradient_ctrl" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div>
+                                            <label style="font-size:10px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">GRADASI A</label>
+                                            <input type="color" id="studio_grad_a" value="#1a0b12" onchange="redrawStudioCanvas()" style="width:100%; height:36px; border:none; border-radius:6px; background:#1e293b; cursor:pointer; padding:0;">
+                                        </div>
+                                        <div>
+                                            <label style="font-size:10px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">GRADASI B</label>
+                                            <input type="color" id="studio_grad_b" value="#050308" onchange="redrawStudioCanvas()" style="width:100%; height:36px; border:none; border-radius:6px; background:#1e293b; cursor:pointer; padding:0;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Media File Upload -->
+                                    <div id="bg_file_ctrl" style="display:none; margin-top:10px;">
+                                        <label for="vod_bg_input" style="display:block; text-align:center; padding:12px; background:#1e293b; border:1px dashed #334155; border-radius:8px; font-size:12px; color:#94a3b8; cursor:pointer;">
+                                            📁 Pilih File Gambar / Video (.mp4, .jpg, .png)
+                                        </label>
+                                        <input type="file" name="background" id="vod_bg_input" multiple accept=".mp4,.jpg,.png" style="display:none;" onchange="handleStudioBgUpload(this)">
+                                        <span id="studio_bg_name" style="font-size:11px; color:#64748b; display:block; margin-top:4px;">Belum ada file media latar</span>
+                                    </div>
+                                    
+                                    <div style="margin-top:14px;">
+                                        <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">LOOPING (PENGGANDAAN)</label>
+                                        <input type="number" name="loop_count" id="vod_loop_count" min="1" value="1" oninput="updateTotalDuration('vod')" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 12px; border-radius:8px; width:100%; font-size:13px; font-weight:700; margin:0;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. TAB VISUALIZER -->
+                            <div id="subtab_visualizer" class="studio-subtab" style="display:none;">
+                                <div id="visVodStudio"></div>
+                            </div>
+
+                            <!-- 3. TAB EFEK -->
+                            <div id="subtab_efek" class="studio-subtab" style="display:none;">
+                                <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                                    <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                    Visual Particle & Overlay Engine
+                                </div>
+                                
+                                <!-- TOGGLE AKTIFKAN / NONAKTIFKAN EFEK -->
+                                <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <span style="font-weight:700; font-size:13px; color:#f8fafc;">✨ Aktifkan Efek Visual Partikel</span>
+                                        <small style="display:block; font-size:11px; color:#94a3b8;">Centang untuk menampilkan partikel atmosfer</small>
+                                    </div>
+                                    <input type="checkbox" id="fx_enable" checked onchange="redrawStudioCanvas()" style="width:18px; height:18px; accent-color:#10b981; cursor:pointer;">
+                                </div>
+
+                                <!-- PRESET SELECTOR -->
+                                <div style="margin-bottom:16px;">
+                                    <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:6px;">PILIH EFEK PARTIKEL / ATMOSFER</label>
+                                    <select id="fx_preset_select" onchange="setVisualEffectPreset(this.value)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; font-size:13px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
+                                        <option value="none">🚫 Tanpa Efek</option>
+                                        <optgroup label="🍃 Alam & Atmosfer">
+                                            <option value="sakura" selected>🌸 Sakura (Kelopak Bunga Gugur)</option>
+                                            <option value="snow">❄️ Snow (Salju Melayang)</option>
+                                            <option value="leaves">🍃 Leaves (Daun Gugur Musim Gugur)</option>
+                                            <option value="rain">🌧️ Rain (Hujan Badai)</option>
+                                            <option value="drizzle">🌦️ Drizzle (Gerimis Halus)</option>
+                                            <option value="fog">🌫️ Fog / Mist (Kabut Tebal)</option>
+                                            <option value="firefly">✨ Fireflies (Kunang-Kunang Malam)</option>
+                                            <option value="bubbles">🫧 Bubbles (Gelembung Air)</option>
+                                            <option value="smoke">💨 Smoke (Asap Panggung)</option>
+                                            <option value="dust">🌪️ Dust (Debu Melayang)</option>
+                                        </optgroup>
+                                        <optgroup label="🌟 Cahaya & Partikel Magis">
+                                            <option value="bokeh">💡 Bokeh (Lampu Sinematik)</option>
+                                            <option value="sparkle">🌟 Sparkles (Kilauan Bintang)</option>
+                                            <option value="stardust">🌌 Stardust (Debu Kosmis)</option>
+                                            <option value="glitter">✨ Glitter (Kilau Permata)</option>
+                                            <option value="confetti">🎊 Confetti (Pesta Warna)</option>
+                                            <option value="goldrain">🪙 Gold Rain (Hujan Emas)</option>
+                                            <option value="hearts">💛 Hearts (Hati Romantis)</option>
+                                            <option value="stars">🌠 Shooting Stars (Bintang Jatuh)</option>
+                                            <option value="lensflare">🔆 Lens Flare (Sinar Lensa)</option>
+                                        </optgroup>
+                                        <optgroup label="👾 Retro & Cyberpunk Glitch">
+                                            <option value="vhs">📼 VHS Retro TV & Scanlines</option>
+                                            <option value="filmgrain">🎞️ Film Grain Vintage</option>
+                                            <option value="matrix">👾 Matrix Code Digital Rain</option>
+                                            <option value="glitch">⚡ RGB Digital Glitch</option>
+                                            <option value="shatter">🧩 Pixel Shatter</option>
+                                            <option value="tvstatic">📺 TV Static Noise</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+
+                                <!-- FX SETTINGS SLIDERS -->
+                                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; background:#1e293b; padding:14px; border-radius:10px; border:1px solid #334155;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">JUMLAH PARTIKEL</span>
+                                        <span id="v_fx_count" style="font-size:11px; font-family:monospace; color:#10b981; font-weight:700;">60</span>
+                                    </div>
+                                    <input type="range" id="fx_count" min="10" max="250" value="60" oninput="uVal('v_fx_count',this.value,''); redrawStudioCanvas();" style="margin:0;">
+
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">KECEPATAN (SPEED)</span>
+                                        <span id="v_fx_speed" style="font-size:11px; font-family:monospace; color:#10b981; font-weight:700;">1.0x</span>
+                                    </div>
+                                    <input type="range" id="fx_speed" min="0.2" max="3.0" step="0.1" value="1.0" oninput="uVal('v_fx_speed',this.value,'x'); redrawStudioCanvas();" style="margin:0;">
+
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">UKURAN (SIZE)</span>
+                                        <span id="v_fx_size" style="font-size:11px; font-family:monospace; color:#10b981; font-weight:700;">1.0x</span>
+                                    </div>
+                                    <input type="range" id="fx_size" min="0.3" max="3.0" step="0.1" value="1.0" oninput="uVal('v_fx_size',this.value,'x'); redrawStudioCanvas();" style="margin:0;">
+
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">ARAH ANGIN (WIND)</span>
+                                        <span id="v_fx_wind" style="font-size:11px; font-family:monospace; color:#10b981; font-weight:700;">0.2</span>
+                                    </div>
+                                    <input type="range" id="fx_wind" min="-2.0" max="2.0" step="0.1" value="0.2" oninput="uVal('v_fx_wind',this.value,''); redrawStudioCanvas();" style="margin:0;">
+
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px solid #334155;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">WARNA KUSTOM</span>
+                                        <input type="color" id="fx_custom_color" value="#ffb7c5" onchange="redrawStudioCanvas()" style="width:30px; height:24px; border:none; border-radius:4px; background:#0f172a; cursor:pointer; padding:0;">
+                                    </div>
+                                </div>
+
+                                <!-- PRESET PALET WARNA AESTHETIC (BANYAK PILIHAN) -->
+                                <div style="margin-bottom:20px;">
+                                    <div style="font-size:11px; font-weight:700; color:#94a3b8; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <span>PALET WARNA EFEK & PARTIKEL</span>
+                                        <span style="font-size:10px; color:#10b981; font-weight:700;">16+ Preset</span>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                                        <div class="fx-color-chip active" onclick="setFxColorPalette('#ffb7c5', this)" style="background:#1e293b; border:1px solid #10b981; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#ffb7c5; box-shadow:0 0 8px #ffb7c5;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Sakura</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#00f2fe', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#00f2fe; box-shadow:0 0 8px #00f2fe;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Cyber Cyan</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#ff416c', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#ff416c; box-shadow:0 0 8px #ff416c;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Crimson</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#10b981', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#10b981; box-shadow:0 0 8px #10b981;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Emerald</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#a855f7', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#a855f7; box-shadow:0 0 8px #a855f7;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Violet</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#f59e0b', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#f59e0b; box-shadow:0 0 8px #f59e0b;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Gold Sun</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#38bdf8', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#38bdf8; box-shadow:0 0 8px #38bdf8;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Ice Frost</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#ef4444', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#ef4444; box-shadow:0 0 8px #ef4444;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Ruby Red</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#6366f1', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#6366f1; box-shadow:0 0 8px #6366f1;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Indigo</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#84cc16', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#84cc16; box-shadow:0 0 8px #84cc16;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Lime Glow</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#fb7185', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#fb7185; box-shadow:0 0 8px #fb7185;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Peach</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#d97706', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#d97706; box-shadow:0 0 8px #d97706;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Lo-Fi Warm</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#2dd4bf', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#2dd4bf; box-shadow:0 0 8px #2dd4bf;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Aqua Mint</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#ffffff', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#ffffff; box-shadow:0 0 8px #ffffff;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Diamond</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('#94a3b8', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#94a3b8; box-shadow:0 0 8px #94a3b8;"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">Slate Moon</span>
+                                        </div>
+                                        <div class="fx-color-chip" onclick="setFxColorPalette('rainbow', this)" style="background:#1e293b; border:1px solid #334155; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(45deg, #ef4444, #eab308, #10b981, #3b82f6, #a855f7); box-shadow:0 0 8px rgba(255,255,255,0.5);"></span>
+                                            <span style="display:block; font-size:9px; color:#f8fafc; font-weight:700; margin-top:2px;">RGB Wave</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- POST-PROCESSING SHADERS / OVERLAYS -->
+                                <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                    <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                    Post-Processing Layers
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:10px;">
+                                    <div class="fx-toggle-card">
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <div><span style="font-weight:700; font-size:13px; color:#f8fafc;">✨ Vignette & Edge Shade</span><small style="display:block; font-size:11px; color:#64748b;">Bayangan sudut sinematik</small></div>
+                                            <input type="checkbox" id="fx_vignette" onchange="redrawStudioCanvas()" checked style="width:18px; height:18px; accent-color:#10b981; cursor:pointer;">
+                                        </div>
+                                    </div>
+                                    <div class="fx-toggle-card">
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <div><span style="font-weight:700; font-size:13px; color:#f8fafc;">🌟 Neon Glow & Pulse</span><small style="display:block; font-size:11px; color:#64748b;">Efek berpendar mengikuti bass audio</small></div>
+                                            <input type="checkbox" id="fx_glow" onchange="redrawStudioCanvas()" checked style="width:18px; height:18px; accent-color:#10b981; cursor:pointer;">
+                                        </div>
+                                    </div>
+                                    <div class="fx-toggle-card">
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <div><span style="font-weight:700; font-size:13px; color:#f8fafc;">🎞️ Film Grain Vintage</span><small style="display:block; font-size:11px; color:#64748b;">Tekstur partikel debu film retro</small></div>
+                                            <input type="checkbox" id="fx_grain" onchange="redrawStudioCanvas()" style="width:18px; height:18px; accent-color:#10b981; cursor:pointer;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 4. TAB RENDER -->
+                            <div id="subtab_render" class="studio-subtab" style="display:none;">
+                                <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                                    <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                    Target YouTube Channel
+                                </div>
+                                <select name="channel_select" id="vod_channel_select" required onchange="fetchPlaylists(this.value, 'vod_playlist_select');" style="background:#1e293b; border:1px solid #334155; color:#fff; font-size:13px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0 0 16px;"></select>
+
+                                <!-- Auto-Spin Judul -->
+                                <div style="background:rgba(16,185,129,0.08); border:1px dashed #10b981; padding:14px; border-radius:10px; margin-bottom:16px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                        <div>
+                                            <span style="font-weight:800; color:#10b981; font-size:13px; display:block;">🎲 Auto-Spin Judul</span>
+                                            <small style="color:#64748b; font-size:11px;">Tarik dari bank judul .txt</small>
+                                        </div>
+                                        <button type="button" onclick="generateAutoTitle('vod')" style="background:#10b981; color:white; border:none; padding:6px 14px; font-weight:800; font-size:11px; border-radius:6px; cursor:pointer;">SPIN</button>
+                                    </div>
+                                    <div id="tags_vod" style="display:flex; flex-wrap:wrap; gap:4px;">
+                                        <span class="tag-chip active-vod" onclick="this.classList.toggle('active-vod')" data-val="{tag}">🏷️ Tag</span>
+                                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{hari}">📅 Hari</span>
+                                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{bulan}">🌙 Bulan</span>
+                                        <span class="tag-chip" onclick="this.classList.toggle('active-vod')" data-val="{tahun}">🎯 Tahun</span>
+                                    </div>
+                                </div>
+
+                                <!-- Metadata -->
+                                <div style="display:flex; flex-direction:column; gap:12px;">
+                                    <div>
+                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">JUDUL VIDEO</label>
+                                        <input type="text" name="title" id="vod_final_title" value="Untitled Lyric Video" required style="background:#1e293b; border:1px solid #334155; color:#fff; padding:10px; border-radius:8px; width:100%; font-size:13px; margin:0;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">CUSTOM THUMBNAIL (OPSIONAL)</label>
+                                        <input type="file" name="thumbnail" accept=".jpg,.png,.jpeg" style="background:#1e293b; border:1px dashed #334155; color:#94a3b8; padding:8px; border-radius:8px; width:100%; font-size:11px; margin:0; cursor:pointer;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">DESKRIPSI VIDEO</label>
+                                        <textarea name="description" rows="3" placeholder="Tulis deskripsi video..." style="background:#1e293b; border:1px solid #334155; color:#fff; padding:10px; border-radius:8px; width:100%; font-size:12px; margin:0;"></textarea>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div>
+                                            <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">PLAYLIST</label>
+                                            <select name="playlist" id="vod_playlist_select" style="background:#1e293b; border:1px solid #334155; color:#fff; font-size:12px; border-radius:8px; padding:8px; width:100%; margin:0;"><option value="">-- Pilih --</option></select>
+                                        </div>
+                                        <div>
+                                            <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">PRIVASI</label>
+                                            <select name="privacy" style="background:#1e293b; border:1px solid #334155; color:#10b981; font-weight:700; font-size:12px; border-radius:8px; padding:8px; width:100%; margin:0;">
+                                                <option value="public">🌍 Public</option>
+                                                <option value="unlisted">🔗 Unlisted</option>
+                                                <option value="private">🔒 Private</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">TAGS (KOMA)</label>
+                                        <input type="text" name="tags" placeholder="Lofi, Relax, Chill" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 10px; border-radius:8px; width:100%; font-size:12px; margin:0;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">JADWAL TAYANG (KOSONG = LANGSUNG)</label>
+                                        <input type="datetime-local" name="schedule" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 10px; border-radius:8px; width:100%; font-size:12px; margin:0;">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn-gold" style="margin-top:20px; padding:14px; background:#10b981; font-weight:800; font-size:13px; letter-spacing:0.5px; border-radius:10px; box-shadow:0 6px 20px rgba(16,185,129,0.35);">
+                                    🚀 MULAI RENDER & UPLOAD
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- CENTER & RIGHT: PREVIEW CANVAS & TIMELINE -->
+                    <div style="flex:1; display:flex; flex-direction:column; background:#0b0f19; overflow:hidden;">
+                        
+                        <!-- PREVIEW CANVAS WORKSPACE -->
+                        <div id="studio_canvas_wrapper" style="flex:1; display:flex; align-items:center; justify-content:center; padding:20px; background:radial-gradient(circle at center, #151c2c 0%, #080c14 100%); position:relative; overflow:hidden;">
+                            
+                            <!-- THE CANVAS CONTAINER -->
+                            <div id="studio_canvas_box" style="position:relative; width:85%; max-width:860px; aspect-ratio:16/9; background:#000000; border-radius:12px; overflow:hidden; box-shadow:0 25px 60px rgba(0,0,0,0.6); border:1px solid #1e293b; transition:all 0.3s ease;">
+                                <canvas id="studioPreviewCanvas" width="1280" height="720" style="width:100%; height:100%; display:block;"></canvas>
+                                
+                                <!-- Canvas Overlay Controls -->
+                                <div style="position:absolute; top:12px; right:12px; display:flex; gap:6px;">
+                                    <button type="button" onclick="toggleCanvasFullscreen()" style="background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,0.1); color:#fff; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer;">⛶ Full</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BOTTOM TIMELINE EDITOR -->
+                        <div style="height:250px; background:#0f172a; border-top:1px solid #1e293b; display:flex; flex-direction:column;">
+                            
+                            <!-- TIMELINE TOOLBAR -->
+                            <div style="padding:8px 16px; border-bottom:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center; background:#090d16;">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <span style="font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px;">TIMELINE</span>
+                                    <span id="timeline_time_indicator" style="font-family:monospace; font-size:12px; font-weight:700; color:#10b981;">0:00 / 0:00</span>
+                                </div>
+
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <button type="button" title="Undo" onclick="studioUndo()" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; border-radius:4px; padding:3px 8px; font-size:12px; cursor:pointer;">↩️</button>
+                                    <button type="button" title="Redo" onclick="studioRedo()" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; border-radius:4px; padding:3px 8px; font-size:12px; cursor:pointer;">↪️</button>
+                                    <button type="button" title="Split Clip" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; border-radius:4px; padding:3px 8px; font-size:12px; cursor:pointer;">✂️</button>
+                                    <button type="button" title="Duplicate" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; border-radius:4px; padding:3px 8px; font-size:12px; cursor:pointer;">📋</button>
+                                    <button type="button" title="Delete" style="background:#1e293b; border:1px solid #334155; color:#ef4444; border-radius:4px; padding:3px 8px; font-size:12px; cursor:pointer;">🗑️</button>
+                                    <span style="display:inline-block; width:1px; height:18px; background:#334155; margin:0 4px;"></span>
+                                    <button type="button" style="background:#10b981; color:#ffffff; font-weight:700; font-size:11px; border:none; border-radius:12px; padding:3px 12px; cursor:pointer;">Kata</button>
+                                    <button type="button" style="background:#10b981; color:#ffffff; font-weight:700; font-size:11px; border:none; border-radius:12px; padding:3px 12px; cursor:pointer; display:flex; align-items:center; gap:4px;"><span>🔗</span> Snap</button>
+                                    <button type="button" onclick="toggleTimelineZoom(-10)" style="background:#1e293b; border:1px solid #334155; color:#fff; border-radius:4px; padding:2px 8px; font-size:12px; cursor:pointer;">−</button>
+                                    <span style="font-size:11px; font-weight:700; color:#64748b;">60px</span>
+                                    <button type="button" onclick="toggleTimelineZoom(10)" style="background:#1e293b; border:1px solid #334155; color:#fff; border-radius:4px; padding:2px 8px; font-size:12px; cursor:pointer;">+</button>
+                                </div>
+                            </div>
+
+                            <!-- TIMELINE TRACKS AREA WITH RULER AND PLAYHEAD -->
+                            <div style="flex:1; display:flex; position:relative; overflow:hidden;">
+                                
+                                <!-- Track Headers (Left Labels) -->
+                                <div style="width:120px; min-width:120px; background:#0d1322; border-right:1px solid #1e293b; display:flex; flex-direction:column; z-index:5;">
+                                    <div style="height:24px; border-bottom:1px solid #1e293b; background:#090d16;"></div>
+                                    <div style="height:44px; padding:0 12px; display:flex; align-items:center; font-size:11px; font-weight:800; color:#10b981; border-bottom:1px solid rgba(255,255,255,0.05); gap:6px;">
+                                        <span>🎵</span> AUDIO
+                                    </div>
+                                    <div style="height:44px; padding:0 12px; display:flex; align-items:center; font-size:11px; font-weight:800; color:#c084fc; border-bottom:1px solid rgba(255,255,255,0.05); gap:6px;">
+                                        <span>📝</span> LIRIK
+                                    </div>
+                                    <div style="height:44px; padding:0 12px; display:flex; align-items:center; font-size:11px; font-weight:800; color:#f59e0b; border-bottom:1px solid rgba(255,255,255,0.05); gap:6px;">
+                                        <span>🎴</span> PLAYER
+                                    </div>
+                                    <div style="height:44px; padding:0 12px; display:flex; align-items:center; font-size:11px; font-weight:800; color:#0ea5e9; gap:6px;">
+                                        <span>🎬</span> MEDIA
+                                    </div>
+                                </div>
+
+                                <!-- Track Lanes & Scrubber Canvas (Right) -->
+                                <div id="timeline_scroll_container" onclick="seekTimelineFromClick(event)" style="flex:1; overflow-x:auto; position:relative; background:#080c14; cursor:crosshair; user-select:none;">
+                                    
+                                    <!-- Playhead needle (Green vertical line) -->
+                                    <div id="studio_playhead_needle" style="position:absolute; top:0; left:0; width:2px; height:100%; background:#10b981; box-shadow:0 0 10px #10b981; z-index:20; pointer-events:none; transition:left 0.05s linear;">
+                                        <div style="position:absolute; top:0; left:-6px; width:14px; height:14px; background:#10b981; border-radius:2px; transform:rotate(45deg); clip-path:polygon(0 0, 100% 0, 100% 100%);"></div>
+                                    </div>
+
+                                    <!-- Timecode Ruler -->
+                                    <div id="timeline_ruler" style="height:24px; border-bottom:1px solid #1e293b; background:#0d1322; display:flex; align-items:center; font-size:10px; font-family:monospace; color:#64748b; padding-left:10px;">
+                                        <span style="margin-right:80px;">0:00</span>
+                                        <span style="margin-right:80px;">0:02</span>
+                                        <span style="margin-right:80px;">0:04</span>
+                                        <span style="margin-right:80px;">0:06</span>
+                                        <span style="margin-right:80px;">0:08</span>
+                                        <span style="margin-right:80px;">0:10</span>
+                                        <span style="margin-right:80px;">0:12</span>
+                                        <span style="margin-right:80px;">0:14</span>
+                                        <span style="margin-right:80px;">0:16</span>
+                                    </div>
+
+                                    <!-- 1. AUDIO TRACK LANE -->
+                                    <div style="height:44px; border-bottom:1px solid rgba(255,255,255,0.05); padding:4px 0; position:relative;">
+                                        <div id="tl_clip_audio" style="position:absolute; left:0; width:100%; height:36px; background:linear-gradient(90deg, #064e3b, #042f2e); border:1px solid #10b981; border-radius:6px; display:flex; align-items:center; padding:0 12px; color:#6ee7b7; font-size:11px; font-weight:700; overflow:hidden;">
+                                            <span style="margin-right:8px;">🎵</span>
+                                            <span id="tl_audio_title">Audio Track (Siap diupload)</span>
+                                            <div style="margin-left:auto; width:60px; height:12px; display:flex; gap:2px; align-items:flex-end;">
+                                                <span style="flex:1; height:60%; background:#10b981; border-radius:1px;"></span>
+                                                <span style="flex:1; height:100%; background:#10b981; border-radius:1px;"></span>
+                                                <span style="flex:1; height:40%; background:#10b981; border-radius:1px;"></span>
+                                                <span style="flex:1; height:80%; background:#10b981; border-radius:1px;"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. LYRICS TRACK LANE -->
+                                    <div style="height:44px; border-bottom:1px solid rgba(255,255,255,0.05); padding:4px 0; position:relative;">
+                                        <div style="position:absolute; left:0; width:70%; height:36px; background:linear-gradient(90deg, #3b0764, #581c87); border:1px solid #a855f7; border-radius:6px; display:flex; align-items:center; padding:0 12px; color:#e9d5ff; font-size:11px; font-weight:700;">
+                                            <span>📝 Lirik Karaoke Sync</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. MUSIC PLAYER / SPECTRUM TRACK LANE -->
+                                    <div style="height:44px; border-bottom:1px solid rgba(255,255,255,0.05); padding:4px 0; position:relative;">
+                                        <div style="position:absolute; left:0; width:100%; height:36px; background:linear-gradient(90deg, #451a03, #78350f); border:1px solid #f59e0b; border-radius:6px; display:flex; align-items:center; padding:0 12px; color:#fde68a; font-size:11px; font-weight:700;">
+                                            <span>🎴 Visualizer Spectrum + Card</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 4. BACKGROUND MEDIA TRACK LANE -->
+                                    <div style="height:44px; padding:4px 0; position:relative;">
+                                        <div style="position:absolute; left:0; width:100%; height:36px; background:linear-gradient(90deg, #0c4a6e, #075985); border:1px solid #0ea5e9; border-radius:6px; display:flex; align-items:center; padding:0 12px; color:#bae6fd; font-size:11px; font-weight:700;">
+                                            <span>🎬 Dynamic Gradient Background</span>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
             </form>
         </div>
+
 
         <div id="live" class="panel">
             <h2 style="margin-top:0; font-size: 24px; font-weight: 800; color:var(--danger);">🔴 Live Streaming Station</h2>
@@ -613,39 +1121,197 @@
         function stopTask(id) { if(confirm("Hentikan tugas ini secara paksa?")) { fetch('/api/stop_task/' + id, {method:'POST'}).then(r=>r.json()).then(d=>{ alert(d.message); fetchDataFromServer(); }); } }
         function clearHistory() { if(confirm("Bersihkan riwayat?")) { fetch('/api/clear_history', { method: 'POST' }).then(r => r.json()).then(d => { alert(d.message); fetchDataFromServer(); }); } }
 
-        // --- VISUALIZER GENERATOR ---
+        // --- VISUALIZER GENERATOR (UI VISUAL INTEGRATION) ---
         function injectVisualizer(cId, mode) { 
+            const isStudio = cId.includes('Studio') || cId.includes('Vod');
+            const cardBg = isStudio ? '#1e293b' : 'var(--bg-panel)';
+            const borderCol = isStudio ? '#334155' : 'var(--border)';
+            const txtMain = isStudio ? '#f8fafc' : 'var(--text-main)';
+            const txtMuted = isStudio ? '#94a3b8' : 'var(--text-muted)';
+            const inpBg = isStudio ? '#0f172a' : 'var(--bg-input)';
+
             document.getElementById(cId).innerHTML = `
-            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:15px; gap:10px;">
-                <span style="color:var(--text-main); font-weight:800; font-size:15px;">🎨 Visualizer Settings</span>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <select id="${mode}_preset_select" style="margin:0; padding:8px 12px; font-size:12px; border-radius:6px; width:150px;" onchange="applyPreset('${mode}', this.value)"><option value="">-- Presets --</option></select>
-                    <button type="button" class="btn-small" style="background:var(--primary); color:white; border:none; font-weight:700;" onclick="saveToLocal('${mode}')">Simpan</button>
-                    <button type="button" class="btn-small" style="color:var(--danger); border-color:var(--danger);" onclick="deleteLocalPreset('${mode}')">Hapus</button>
-                    <span style="color:var(--border); margin:0 5px;">|</span>
-                    <button type="button" class="btn-small" onclick="loadPresetFile('${mode}')">Import JSON</button>
-                    <button type="button" class="btn-small" onclick="savePresetFile('${mode}')">Export</button>
+            <!-- TOGGLE AKTIFKAN / NONAKTIFKAN VISUALIZER -->
+            <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-weight:700; font-size:13px; color:${txtMain};">🎛️ Aktifkan Visualizer Spectrum</span>
+                    <small style="display:block; font-size:11px; color:${txtMuted};">Centang untuk menampilkan spektrum audio</small>
+                </div>
+                <input type="checkbox" id="${mode}_vis_enable" checked onchange="redrawStudioCanvas()" style="width:18px; height:18px; accent-color:#10b981; cursor:pointer;">
+            </div>
+
+            <!-- TIPE SPECTRUM VISUALIZER (FROM UI VISUAL) -->
+            <div style="margin-bottom:14px;">
+                <label style="font-size:11px; font-weight:700; color:${txtMuted}; display:block; margin-bottom:6px;">TIPE VISUALIZER SPECTRUM</label>
+                <select id="${mode}_spectrum_type" name="spectrum_type" onchange="redrawStudioCanvas()" style="background:${inpBg}; border:1px solid ${borderCol}; color:${txtMain}; font-size:13px; font-weight:700; border-radius:8px; padding:10px; width:100%; margin:0;">
+                    <optgroup label="📊 Equalizer & Spectrum Bars">
+                        <option value="modern-bars" selected>Modern Bars (Bar Spektrum Modern)</option>
+                        <option value="neon-bars">Neon Glow Bars (Bar Menyala Neon)</option>
+                        <option value="rgb-bars">RGB Rainbow Bars (Warna Pelangi)</option>
+                        <option value="mirror-bars">Mirror Bars (Spektrum Simetris Atas-Bawah)</option>
+                        <option value="border-bars">Border Bars (Membingkai Tepi Kanvas)</option>
+                    </optgroup>
+                    <optgroup label="⭕ Trap Nation & Circular Visualizer">
+                        <option value="trap-nation">Trap Nation Ring (Lingkaran Cermin Bass)</option>
+                        <option value="trap-nation-blob">Trap Nation Blob (Lingkaran Organik Lentur)</option>
+                        <option value="circular">Circular Particle Ring (Cincin Partikel)</option>
+                        <option value="speaker-beat">Speaker Beat (Getaran Denyut Speaker)</option>
+                        <option value="radial">Radial Rotating (Berputar Mengikuti Ritme)</option>
+                    </optgroup>
+                    <optgroup label="🎙️ Waveform & Podcast Audiogram">
+                        <option value="podcast">Podcast Audiogram (Simetris Tengah)</option>
+                        <option value="waveform-glow">Waveform Glow (Garis Gelombang Sinus)</option>
+                        <option value="oscilloscope">Oscilloscope (Sinyal Garis Osiloskop)</option>
+                        <option value="center-short">Minimal Center Wave (Garis Minimalis)</option>
+                    </optgroup>
+                    <optgroup label="🧬 Futuristic & Cyber Shapes">
+                        <option value="dna-twist">DNA Twist Helix (Heliks Berputar)</option>
+                        <option value="spiral">Galaxy Spiral (Pusaran Galaksi)</option>
+                        <option value="neon-tubes">Neon Tubes (Tabung Neon Berdenyut)</option>
+                        <option value="hexagon">Hexagon Grid (Sarang Lebah Hexagon)</option>
+                        <option value="orb-pulse">Orb Pulse (Bola Cahaya Bergetar)</option>
+                        <option value="waterfall">Waterfall Wave (Air Terjun Spektrum)</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- PALET WARNA TEMPLATE SPECTRUM (16+ PILIHAN LANGSUNG MUNCUL) -->
+            <div style="margin-bottom:16px;">
+                <div style="font-size:11px; font-weight:700; color:${txtMuted}; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span>PALET WARNA SPECTRUM</span>
+                    <span style="font-size:10px; color:#10b981; font-weight:700;">16+ Preset</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                    <div class="vis-palette-chip active" onclick="setVisualizerPalette('${mode}', '#10b981', '#0ea5e9', this)" style="background:${cardBg}; border:1px solid #10b981; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #10b981, #0ea5e9); box-shadow:0 0 6px rgba(16,185,129,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Emerald</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#00f2fe', '#4facfe', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #00f2fe, #4facfe); box-shadow:0 0 6px rgba(0,242,254,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Cyber Cyan</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#ff758c', '#ff7eb3', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #ff758c, #ff7eb3); box-shadow:0 0 6px rgba(255,117,140,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Sakura</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#ff416c', '#ff4b2b', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow:0 0 6px rgba(255,65,108,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Sunset</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#8b5cf6', '#d946ef', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #8b5cf6, #d946ef); box-shadow:0 0 6px rgba(139,92,246,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Purple Neon</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#f59e0b', '#fef08a', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #f59e0b, #fef08a); box-shadow:0 0 6px rgba(245,158,11,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Gold Sun</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#38bdf8', '#e0f2fe', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #38bdf8, #e0f2fe); box-shadow:0 0 6px rgba(56,189,248,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Ice Frost</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#ef4444', '#991b1b', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #ef4444, #991b1b); box-shadow:0 0 6px rgba(239,68,68,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Ruby Blood</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#ec4899', '#6366f1', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #ec4899, #6366f1); box-shadow:0 0 6px rgba(236,72,153,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Nebula</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#84cc16', '#a3e635', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #84cc16, #a3e635); box-shadow:0 0 6px rgba(132,204,22,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Lime Glow</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#fb7185', '#fcd34d', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #fb7185, #fcd34d); box-shadow:0 0 6px rgba(251,113,133,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Peach Candy</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#2dd4bf', '#0284c7', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #2dd4bf, #0284c7); box-shadow:0 0 6px rgba(45,212,191,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Aqua Lagoon</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#d97706', '#78350f', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #d97706, #78350f); box-shadow:0 0 6px rgba(217,119,6,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Lo-Fi Warm</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#ffffff', '#94a3b8', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #ffffff, #94a3b8); box-shadow:0 0 6px rgba(255,255,255,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Diamond</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', '#334155', '#64748b', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg, #334155, #64748b); box-shadow:0 0 6px rgba(100,116,139,0.4);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">Monolith</span>
+                    </div>
+                    <div class="vis-palette-chip" onclick="setVisualizerPalette('${mode}', 'rainbow', 'rainbow', this)" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:6px; padding:6px 4px; text-align:center; cursor:pointer; transition:0.2s;">
+                        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:linear-gradient(45deg, #ef4444, #eab308, #10b981, #3b82f6, #a855f7); box-shadow:0 0 6px rgba(255,255,255,0.5);"></span>
+                        <span style="display:block; font-size:9px; color:${txtMain}; font-weight:700; margin-top:2px;">RGB Wave</span>
+                    </div>
                 </div>
             </div>
-            <div class="grid-3" style="margin-bottom:15px;">
-                <div class="slider-group"><label>Base Color</label><input type="color" id="${mode}_color_bot" name="color_bot" value="#10b981" style="height:35px; border:none; border-radius:8px; padding:0;"></div>
-                <div class="slider-group"><label>Peak Color</label><input type="color" id="${mode}_color_top" name="color_top" value="#0ea5e9" style="height:35px; border:none; border-radius:8px; padding:0;"></div>
-                <div class="slider-group"><label>Part Color</label><input type="color" id="${mode}_color_part" name="color_part" value="#ffffff" style="height:35px; border:none; border-radius:8px; padding:0;"></div>
+
+            <!-- COLOR CONTROLS -->
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:14px;">
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="font-size:10px; font-weight:700; color:${txtMuted}; display:block; margin-bottom:4px;">BASE COLOR</label>
+                    <input type="color" id="${mode}_color_bot" name="color_bot" value="#10b981" onchange="redrawStudioCanvas()" style="height:32px; width:100%; border:none; border-radius:6px; padding:0; background:transparent; cursor:pointer;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="font-size:10px; font-weight:700; color:${txtMuted}; display:block; margin-bottom:4px;">PEAK COLOR</label>
+                    <input type="color" id="${mode}_color_top" name="color_top" value="#0ea5e9" onchange="redrawStudioCanvas()" style="height:32px; width:100%; border:none; border-radius:6px; padding:0; background:transparent; cursor:pointer;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="font-size:10px; font-weight:700; color:${txtMuted}; display:block; margin-bottom:4px;">PART COLOR</label>
+                    <input type="color" id="${mode}_color_part" name="color_part" value="#ffffff" onchange="redrawStudioCanvas()" style="height:32px; width:100%; border:none; border-radius:6px; padding:0; background:transparent; cursor:pointer;">
+                </div>
             </div>
-            <div class="grid-3">
-                <div class="slider-group"><label>X Pos <span class="val-badge" id="v_${mode}_px">50%</span></label><input type="range" id="${mode}_pos_x" name="pos_x" min="0" max="100" value="50" oninput="uVal('v_${mode}_px',this.value,'%')"></div>
-                <div class="slider-group"><label>Y Pos <span class="val-badge" id="v_${mode}_py">85%</span></label><input type="range" id="${mode}_pos_y" name="pos_y" min="0" max="100" value="85" oninput="uVal('v_${mode}_py',this.value,'%')"></div>
-                <div class="slider-group"><label>Width <span class="val-badge" id="v_${mode}_wp">60%</span></label><input type="range" id="${mode}_width_pct" name="width_pct" min="10" max="100" value="60" oninput="uVal('v_${mode}_wp',this.value,'%')"></div>
-                <div class="slider-group"><label>Limit <span class="val-badge" id="v_${mode}_mh">40%</span></label><input type="range" id="${mode}_max_height" name="max_height" min="10" max="100" value="40" oninput="uVal('v_${mode}_mh',this.value,'%')"></div>
-                <div class="slider-group"><label>Idle <span class="val-badge" id="v_${mode}_ih">5px</span></label><input type="range" id="${mode}_idle_height" name="idle_height" min="0" max="50" value="5" oninput="uVal('v_${mode}_ih',this.value,'px')"></div>
-                <div class="slider-group"><label>Density <span class="val-badge" id="v_${mode}_bc">64</span></label><input type="range" id="${mode}_bar_count" name="bar_count" min="10" max="200" value="64" oninput="uVal('v_${mode}_bc',this.value,'')"></div>
-                <div class="slider-group"><label>React <span class="val-badge" id="v_${mode}_r">0.66x</span></label><input type="range" id="${mode}_reactivity" name="reactivity" min="0.1" max="4.0" step="0.01" value="0.66" oninput="uVal('v_${mode}_r',this.value,'x')"></div>
-                <div class="slider-group"><label>Gravity <span class="val-badge" id="v_${mode}_g">0.08</span></label><input type="range" id="${mode}_gravity" name="gravity" min="0.01" max="0.50" step="0.01" value="0.08" oninput="uVal('v_${mode}_g',this.value,'')"></div>
-                <div class="slider-group"><label>Gap <span class="val-badge" id="v_${mode}_sp">3px</span></label><input type="range" id="${mode}_spacing" name="spacing" min="0" max="20" value="3" oninput="uVal('v_${mode}_sp',this.value,'px')"></div>
-                <div class="slider-group"><label>Part Amount <span class="val-badge" id="v_${mode}_pa">3</span></label><input type="range" id="${mode}_part_amount" name="part_amount" min="0" max="300" value="3" oninput="uVal('v_${mode}_pa',this.value,'')"></div>
-                <div class="slider-group"><label>Part Speed <span class="val-badge" id="v_${mode}_ps">1.0x</span></label><input type="range" id="${mode}_part_speed" name="part_speed" min="0.1" max="5.0" step="0.1" value="1.0" oninput="uVal('v_${mode}_ps',this.value,'x')"></div>
+
+            <!-- SLIDER CONTROLS -->
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;">
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">X POS <span class="val-badge" id="v_${mode}_px">50%</span></label>
+                    <input type="range" id="${mode}_pos_x" name="pos_x" min="0" max="100" value="50" oninput="uVal('v_${mode}_px',this.value,'%'); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">Y POS <span class="val-badge" id="v_${mode}_py">85%</span></label>
+                    <input type="range" id="${mode}_pos_y" name="pos_y" min="0" max="100" value="85" oninput="uVal('v_${mode}_py',this.value,'%'); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">WIDTH <span class="val-badge" id="v_${mode}_wp">60%</span></label>
+                    <input type="range" id="${mode}_width_pct" name="width_pct" min="10" max="100" value="60" oninput="uVal('v_${mode}_wp',this.value,'%'); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">LIMIT <span class="val-badge" id="v_${mode}_mh">40%</span></label>
+                    <input type="range" id="${mode}_max_height" name="max_height" min="10" max="100" value="40" oninput="uVal('v_${mode}_mh',this.value,'%'); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">IDLE <span class="val-badge" id="v_${mode}_ih">5px</span></label>
+                    <input type="range" id="${mode}_idle_height" name="idle_height" min="0" max="50" value="5" oninput="uVal('v_${mode}_ih',this.value,'px'); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">DENSITY <span class="val-badge" id="v_${mode}_bc">64</span></label>
+                    <input type="range" id="${mode}_bar_count" name="bar_count" min="10" max="200" value="64" oninput="uVal('v_${mode}_bc',this.value,''); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">REACT <span class="val-badge" id="v_${mode}_r">0.66x</span></label>
+                    <input type="range" id="${mode}_reactivity" name="reactivity" min="0.1" max="4.0" step="0.01" value="0.66" oninput="uVal('v_${mode}_r',this.value,'x'); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">GRAVITY <span class="val-badge" id="v_${mode}_g">0.08</span></label>
+                    <input type="range" id="${mode}_gravity" name="gravity" min="0.01" max="0.50" step="0.01" value="0.08" oninput="uVal('v_${mode}_g',this.value,''); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">GAP <span class="val-badge" id="v_${mode}_sp">3px</span></label>
+                    <input type="range" id="${mode}_spacing" name="spacing" min="0" max="20" value="3" oninput="uVal('v_${mode}_sp',this.value,'px'); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">PART COUNT <span class="val-badge" id="v_${mode}_pa">3</span></label>
+                    <input type="range" id="${mode}_part_amount" name="part_amount" min="0" max="300" value="3" oninput="uVal('v_${mode}_pa',this.value,''); redrawStudioCanvas();" style="margin:0;">
+                </div>
+                <div style="background:${cardBg}; padding:10px 12px; border-radius:8px; border:1px solid ${borderCol};">
+                    <label style="display:flex; justify-content:space-between; font-size:10px; color:${txtMuted}; margin-bottom:6px; font-weight:700;">PART SPEED <span class="val-badge" id="v_${mode}_ps">1.0x</span></label>
+                    <input type="range" id="${mode}_part_speed" name="part_speed" min="0.1" max="5.0" step="0.1" value="1.0" oninput="uVal('v_${mode}_ps',this.value,'x'); redrawStudioCanvas();" style="margin:0;">
+                </div>
             </div>
-            <button type="button" id="btn_preview_${mode}" onclick="jalankanPreview('${mode}')" class="btn-small" style="width:100%; margin-top:20px; padding:12px; font-weight:700;">👀 Lihat Preview 5 Detik</button>
             `; 
         }
 
@@ -682,7 +1348,1072 @@
         function eksekusiPresetKeLayar(mode, p) { document.getElementById(`${mode}_color_bot`).value = rgbToHex(p.colors.bot[0], p.colors.bot[1], p.colors.bot[2]); document.getElementById(`${mode}_color_top`).value = rgbToHex(p.colors.top[0], p.colors.top[1], p.colors.top[2]); document.getElementById(`${mode}_color_part`).value = rgbToHex(p.colors.part[0], p.colors.part[1], p.colors.part[2]); document.getElementById(`${mode}_pos_x`).value = p.sliders.pos_x * 100; document.getElementById(`${mode}_pos_y`).value = p.sliders.pos_y * 100; document.getElementById(`${mode}_width_pct`).value = p.sliders.spec_width * 100; document.getElementById(`${mode}_max_height`).value = p.sliders.height_limit * 100; document.getElementById(`${mode}_idle_height`).value = p.sliders.min_height; document.getElementById(`${mode}_reactivity`).value = p.sliders.reactivity; document.getElementById(`${mode}_gravity`).value = p.sliders.fall_speed; document.getElementById(`${mode}_bar_count`).value = p.sliders.bar_count; document.getElementById(`${mode}_spacing`).value = p.sliders.bar_gap; document.getElementById(`${mode}_part_amount`).value = p.sliders.part_density; document.getElementById(`${mode}_part_speed`).value = p.sliders.part_speed; document.querySelectorAll(`#${mode} input[type=range]`).forEach(el => el.dispatchEvent(new Event('input'))); }
         function uVal(id,v,s) { document.getElementById(id).innerText = v+s; }
 
-        function initApp() { injectVisualizer('visVod', 'vod'); injectVisualizer('visLive', 'live'); loadChannels(); fetchAnalyticsData(); checkApiStatus(); setInterval(fetchDataFromServer, 2000); refreshPresetDropdowns(); }
+        // ==========================================
+        // 🎬 KEIBOT STUDIO VISUAL ENGINE (LIGHTWEIGHT & REAL-TIME)
+        // ==========================================
+        let studioAudio = null;
+        let studioAudioCtx = null;
+        let studioAnalyser = null;
+        let studioAudioSrc = null;
+        let studioFreqData = null;
+        let studioIsPlaying = false;
+        let studioBgMode = 'gradient';
+        let studioBgImg = null;
+        let studioBgVid = null;
+        let studioTemplate = 'classic';
+        let studioAspect = '16:9';
+        let studioDiscRot = 0;
+        let studioParticlesList = [];
+        let studioAnimId = null;
+
+        // Init floating particles
+        for(let i=0; i<45; i++) {
+            studioParticlesList.push({
+                x: Math.random() * 1280,
+                y: Math.random() * 720,
+                radius: Math.random() * 2.5 + 0.8,
+                speedX: (Math.random() - 0.5) * 0.8,
+                speedY: -(Math.random() * 1.2 + 0.3),
+                alpha: Math.random() * 0.7 + 0.2
+            });
+        }
+
+        function switchStudioSubTab(tabName) {
+            document.querySelectorAll('.studio-tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = '#94a3b8';
+            });
+            document.querySelectorAll('.studio-subtab').forEach(t => t.style.display = 'none');
+            
+            const btn = document.getElementById('tab_btn_' + tabName);
+            const panel = document.getElementById('subtab_' + tabName);
+            if(btn && panel) {
+                btn.classList.add('active');
+                btn.style.background = tabName === 'render' ? 'rgba(16,185,129,0.15)' : '#1e293b';
+                btn.style.color = '#10b981';
+                panel.style.display = 'block';
+            }
+        }
+
+        function syncStudioTitle(val) {
+            const finalInp = document.getElementById('vod_final_title');
+            if(finalInp) finalInp.value = val;
+            const audioTrackTitle = document.getElementById('tl_audio_title');
+            if(audioTrackTitle) audioTrackTitle.innerText = val || "Audio Track";
+            redrawStudioCanvas();
+        }
+
+        function selectStudioTemplate(tpl, el) {
+            studioTemplate = tpl;
+            document.querySelectorAll('.studio-template-card').forEach(c => c.classList.remove('active'));
+            if(el) el.classList.add('active');
+            redrawStudioCanvas();
+        }
+
+        function setBgMode(mode, el) {
+            studioBgMode = mode;
+            document.querySelectorAll('.bg-mode-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = '#94a3b8';
+            });
+            if(el) {
+                el.classList.add('active');
+                el.style.background = '#10b981';
+                el.style.color = '#ffffff';
+            }
+
+            const gradCtrl = document.getElementById('bg_gradient_ctrl');
+            const fileCtrl = document.getElementById('bg_file_ctrl');
+            if(mode === 'gradient' || mode === 'color') {
+                gradCtrl.style.display = 'grid';
+                fileCtrl.style.display = 'none';
+            } else {
+                gradCtrl.style.display = 'none';
+                fileCtrl.style.display = 'block';
+            }
+            redrawStudioCanvas();
+        }
+
+        function setStudioAspectRatio(ratio) {
+            studioAspect = ratio;
+            const box = document.getElementById('studio_canvas_box');
+            if(!box) return;
+            if(ratio === '16:9') {
+                box.style.aspectRatio = '16/9';
+                box.style.width = '85%';
+                box.style.maxWidth = '860px';
+            } else if(ratio === '9:16') {
+                box.style.aspectRatio = '9/16';
+                box.style.width = 'auto';
+                box.style.height = '90%';
+                box.style.maxWidth = '380px';
+            } else if(ratio === '1:1') {
+                box.style.aspectRatio = '1/1';
+                box.style.width = 'auto';
+                box.style.height = '85%';
+                box.style.maxWidth = '520px';
+            }
+            redrawStudioCanvas();
+        }
+
+        function handleStudioAudioUpload(input) {
+            calcAudioDuration(input, 'vod_dur_info');
+            if(input.files && input.files[0]) {
+                const file = input.files[0];
+                document.getElementById('studio_audio_name').innerText = file.name;
+                document.getElementById('tl_audio_title').innerText = file.name;
+                document.getElementById('studio_project_title').value = file.name.replace(/\.[^/.]+$/, "");
+                syncStudioTitle(document.getElementById('studio_project_title').value);
+
+                if(!studioAudio) {
+                    studioAudio = new Audio();
+                    studioAudio.crossOrigin = "anonymous";
+                }
+                studioAudio.src = URL.createObjectURL(file);
+                studioAudio.load();
+
+                studioAudio.onloadedmetadata = () => {
+                    updateStudioTimeDisplay();
+                    redrawStudioCanvas();
+                };
+
+                studioAudio.onended = () => {
+                    studioIsPlaying = false;
+                    document.getElementById('studio_play_btn').innerText = '▶';
+                    if(studioAnimId) cancelAnimationFrame(studioAnimId);
+                };
+            }
+        }
+
+        function initStudioAudioContext() {
+            if(!studioAudioCtx && studioAudio) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                studioAudioCtx = new AudioContext();
+                studioAnalyser = studioAudioCtx.createAnalyser();
+                studioAnalyser.fftSize = 128;
+                studioAnalyser.smoothingTimeConstant = 0.8;
+                studioAudioSrc = studioAudioCtx.createMediaElementSource(studioAudio);
+                studioAudioSrc.connect(studioAnalyser);
+                studioAnalyser.connect(studioAudioCtx.destination);
+                studioFreqData = new Uint8Array(studioAnalyser.frequencyBinCount);
+            }
+        }
+
+        function handleStudioBgUpload(input) {
+            if(input.files && input.files[0]) {
+                const file = input.files[0];
+                document.getElementById('studio_bg_name').innerText = file.name;
+                if(file.type.startsWith('video/')) {
+                    if(!studioBgVid) studioBgVid = document.createElement('video');
+                    studioBgVid.src = URL.createObjectURL(file);
+                    studioBgVid.loop = true;
+                    studioBgVid.muted = true;
+                    studioBgVid.play();
+                    studioBgImg = null;
+                } else {
+                    studioBgImg = new Image();
+                    studioBgImg.src = URL.createObjectURL(file);
+                    studioBgImg.onload = () => redrawStudioCanvas();
+                    studioBgVid = null;
+                }
+                redrawStudioCanvas();
+            }
+        }
+
+        function toggleStudioPlay() {
+            if(!studioAudio || !studioAudio.src) {
+                document.getElementById('vod_audio_input').click();
+                return;
+            }
+
+            initStudioAudioContext();
+            if(studioAudioCtx && studioAudioCtx.state === 'suspended') {
+                studioAudioCtx.resume();
+            }
+
+            if(studioIsPlaying) {
+                studioAudio.pause();
+                if(studioBgVid) studioBgVid.pause();
+                studioIsPlaying = false;
+                document.getElementById('studio_play_btn').innerText = '▶';
+                if(studioAnimId) cancelAnimationFrame(studioAnimId);
+            } else {
+                studioAudio.play();
+                if(studioBgVid) studioBgVid.play();
+                studioIsPlaying = true;
+                document.getElementById('studio_play_btn').innerText = '⏸';
+                studioAnimLoop();
+            }
+        }
+
+        function seekStudioRelative(sec) {
+            if(!studioAudio) return;
+            studioAudio.currentTime = Math.max(0, Math.min(studioAudio.duration || 0, studioAudio.currentTime + sec));
+            updateStudioTimeDisplay();
+            redrawStudioCanvas();
+        }
+
+        function seekTimelineFromClick(e) {
+            if(!studioAudio || !studioAudio.duration) return;
+            const container = document.getElementById('timeline_scroll_container');
+            const rect = container.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const pct = Math.max(0, Math.min(1, clickX / rect.width));
+            studioAudio.currentTime = pct * studioAudio.duration;
+            updateStudioTimeDisplay();
+            redrawStudioCanvas();
+        }
+
+        function setStudioPlaybackRate(rate) {
+            if(studioAudio) studioAudio.playbackRate = parseFloat(rate);
+        }
+
+        function updateStudioTimeDisplay() {
+            if(!studioAudio) return;
+            const cur = fmtTime(studioAudio.currentTime || 0).substring(3);
+            const dur = fmtTime(studioAudio.duration || 0).substring(3);
+            const str = `${cur} / ${dur}`;
+            document.getElementById('studio_timecode').innerText = str;
+            document.getElementById('timeline_time_indicator').innerText = str;
+
+            if(studioAudio.duration > 0) {
+                const pct = (studioAudio.currentTime / studioAudio.duration) * 100;
+                const needle = document.getElementById('studio_playhead_needle');
+                if(needle) needle.style.left = `${pct}%`;
+            }
+        }
+
+        function studioAnimLoop() {
+            if(!studioIsPlaying) return;
+            updateStudioTimeDisplay();
+            redrawStudioCanvas();
+            studioAnimId = requestAnimationFrame(studioAnimLoop);
+        }
+
+        function redrawStudioCanvas() {
+            const canvas = document.getElementById('studioPreviewCanvas');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width;
+            const H = canvas.height;
+
+            // 1. BACKGROUND
+            if(studioBgMode === 'gradient') {
+                const gradA = document.getElementById('studio_grad_a').value || '#1a0b12';
+                const gradB = document.getElementById('studio_grad_b').value || '#050308';
+                const grad = ctx.createRadialGradient(W/2, H/2, 50, W/2, H/2, W/1.2);
+                grad.addColorStop(0, gradA);
+                grad.addColorStop(1, gradB);
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, W, H);
+            } else if(studioBgMode === 'color') {
+                ctx.fillStyle = document.getElementById('studio_grad_a').value || '#0f172a';
+                ctx.fillRect(0, 0, W, H);
+            } else if(studioBgMode === 'image' && studioBgImg && studioBgImg.complete) {
+                ctx.drawImage(studioBgImg, 0, 0, W, H);
+            } else if(studioBgMode === 'video' && studioBgVid && !studioBgVid.paused) {
+                ctx.drawImage(studioBgVid, 0, 0, W, H);
+            } else {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, W, H);
+            }
+
+            // 2. VISUAL EFFECTS PARTICLES & OVERLAYS ENGINE (From UI Visual Presets)
+            const isFxEnabled = document.getElementById('fx_enable') ? document.getElementById('fx_enable').checked : true;
+            const fxPreset = document.getElementById('fx_preset_select')?.value || 'sakura';
+            const fxCount = parseInt(document.getElementById('fx_count')?.value || 60);
+            const fxSpeed = parseFloat(document.getElementById('fx_speed')?.value || 1.0);
+            const fxSize = parseFloat(document.getElementById('fx_size')?.value || 1.0);
+            const fxWind = parseFloat(document.getElementById('fx_wind')?.value || 0.2);
+            const timeSec = (studioAudio && studioAudio.currentTime) ? studioAudio.currentTime : (Date.now() / 1000);
+            const fxColor = (window.studioFxColorMode === 'rainbow') 
+                ? `hsl(${(timeSec * 70) % 360}, 100%, 65%)` 
+                : (document.getElementById('fx_custom_color')?.value || '#ffb7c5');
+
+            if(isFxEnabled && fxPreset !== 'none') {
+                renderStudioVisualEffects(ctx, fxPreset, {
+                    count: fxCount,
+                    speed: fxSpeed,
+                    size: fxSize,
+                    wind: fxWind,
+                    color: fxColor,
+                    cycleDuration: 12
+                }, timeSec, W, H);
+            }
+
+            // 3. FREQUENCY SPECTRUM DATA
+            let freqs = new Array(64).fill(15);
+            let bassEnergy = 0;
+            if(studioAnalyser && studioFreqData && studioIsPlaying) {
+                studioAnalyser.getByteFrequencyData(studioFreqData);
+                for(let i=0; i<64; i++) {
+                    freqs[i] = studioFreqData[i % studioFreqData.length] || 15;
+                }
+                bassEnergy = (freqs[0] + freqs[1] + freqs[2] + freqs[3]) / (4 * 255);
+            } else {
+                for(let i=0; i<64; i++) {
+                    freqs[i] = Math.sin((i + Date.now() / 200) * 0.3) * 20 + 25;
+                }
+                bassEnergy = 0.2;
+            }
+
+            const botColor = document.getElementById('vod_color_bot')?.value || '#10b981';
+            const topColor = document.getElementById('vod_color_top')?.value || '#0ea5e9';
+            const isVisEnabled = document.getElementById('vod_vis_enable') ? document.getElementById('vod_vis_enable').checked : true;
+
+            // 4. TEMPLATE RENDERING
+            const titleText = document.getElementById('studio_project_title')?.value || "Untitled Lyric Video";
+
+            if(studioTemplate === 'classic') {
+                // Classic Player Disc + Card Mockup
+                const cardW = 560;
+                const cardH = 260;
+                const cardX = (W - cardW) / 2;
+                const cardY = (H - cardH) / 2 - 40;
+
+                // Glassmorphism Card
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(cardX, cardY, cardW, cardH, 20);
+                ctx.fill();
+                ctx.stroke();
+
+                // Spinning Disc
+                const discX = cardX + 110;
+                const discY = cardY + cardH / 2;
+                const discR = 75;
+                if(studioIsPlaying) studioDiscRot += 0.02;
+
+                ctx.save();
+                ctx.translate(discX, discY);
+                ctx.rotate(studioDiscRot);
+                ctx.beginPath();
+                ctx.arc(0, 0, discR, 0, Math.PI * 2);
+                ctx.fillStyle = '#090d16';
+                ctx.fill();
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+
+                // Disc Center Art
+                ctx.beginPath();
+                ctx.arc(0, 0, 32, 0, Math.PI * 2);
+                ctx.fillStyle = botColor;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+                ctx.restore();
+
+                // Song Title & Lyrics Mockup
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 22px Segoe UI, sans-serif';
+                ctx.fillText(titleText, cardX + 220, cardY + 80);
+
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '14px Segoe UI, sans-serif';
+                ctx.fillText('KeiBot Music Studio Player', cardX + 220, cardY + 110);
+
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 16px Segoe UI, sans-serif';
+                ctx.fillText('♪ Menghanyutkan rasa di dalam nada...', cardX + 220, cardY + 160);
+
+                // Visualizer Spectrum Rendering on Canvas (if enabled)
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'modern-bars';
+                    const posX = (parseFloat(document.getElementById('vod_pos_x')?.value || 50) / 100) * W;
+                    const posY = (parseFloat(document.getElementById('vod_pos_y')?.value || 85) / 100) * H;
+                    const specW = (parseFloat(document.getElementById('vod_width_pct')?.value || 60) / 100) * W;
+                    const limitH = (parseFloat(document.getElementById('vod_max_height')?.value || 40) / 100) * H;
+                    const barCount = parseInt(document.getElementById('vod_bar_count')?.value || 48);
+                    const barGap = parseInt(document.getElementById('vod_spacing')?.value || 3);
+                    const idleH = parseFloat(document.getElementById('vod_idle_height')?.value || 5);
+
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, posX, posY, specW, limitH, barCount, barGap, idleH, bassEnergy, timeSec, W, H);
+                }
+
+            } else if(studioTemplate === 'neon') {
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'neon-bars';
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, H/2 + 60, W*0.75, H*0.4, 48, 4, 6, bassEnergy, timeSec, W, H);
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 36px Segoe UI, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = botColor;
+                ctx.shadowBlur = 20;
+                ctx.fillText(titleText, W / 2, H / 2 - 80);
+                ctx.shadowBlur = 0;
+                ctx.textAlign = 'left';
+
+            } else if(studioTemplate === 'minimal') {
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'waveform-glow';
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, H/2 + 100, W*0.5, H*0.25, 36, 3, 4, bassEnergy, timeSec, W, H);
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 48px Segoe UI, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(titleText, W / 2, H / 2 - 20);
+
+                ctx.fillStyle = botColor;
+                ctx.font = 'bold 20px Segoe UI, sans-serif';
+                ctx.fillText('• • • NOW PLAYING • • •', W / 2, H / 2 + 40);
+                ctx.textAlign = 'left';
+
+            } else if(studioTemplate === 'reels') {
+                if(isVisEnabled) {
+                    const specType = document.getElementById('vod_spectrum_type')?.value || 'podcast';
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, H*0.75, W*0.8, H*0.2, 40, 3, 4, bassEnergy, timeSec, W, H);
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 28px Segoe UI, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(titleText, W / 2, H * 0.4);
+
+                ctx.fillStyle = '#a855f7';
+                ctx.font = 'bold 18px Segoe UI, sans-serif';
+                ctx.fillText('✨ Viral TikTok / Shorts Edition', W / 2, H * 0.46);
+                ctx.textAlign = 'left';
+            }
+
+            // 5. POST-PROCESSING OVERLAYS
+            // Neon Glow / Bass Pulse
+            if(document.getElementById('fx_glow')?.checked && bassEnergy > 0.3) {
+                ctx.save();
+                ctx.fillStyle = botColor;
+                ctx.globalAlpha = Math.min(0.2, (bassEnergy - 0.3) * 0.35);
+                ctx.fillRect(0, 0, W, H);
+                ctx.restore();
+            }
+
+            // Vignette FX
+            if(document.getElementById('fx_vignette')?.checked) {
+                const vig = ctx.createRadialGradient(W/2, H/2, W/4, W/2, H/2, W/1.2);
+                vig.addColorStop(0, 'rgba(0,0,0,0)');
+                vig.addColorStop(1, 'rgba(0,0,0,0.65)');
+                ctx.fillStyle = vig;
+                ctx.fillRect(0, 0, W, H);
+            }
+
+            // Film Grain
+            if(document.getElementById('fx_grain')?.checked) {
+                renderFilmGrain(ctx, W, H);
+            }
+        }
+
+        // ==========================================
+        // 🎛️ FULL SPECTRUM VISUALIZER ENGINE (FROM UI VISUAL)
+        // ==========================================
+        function renderSpectrumEngine(ctx, type, freqs, botColor, topColor, x, y, width, maxH, barCount, gap, idleH, bassEnergy, time, W, H) {
+            const count = Math.min(barCount || 48, freqs.length);
+            const barW = Math.max(2, (width / count) - (gap || 3));
+            const startX = x - width / 2;
+
+            if(type === 'modern-bars' || type === 'classic-bars') {
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH);
+                    const bx = startX + i * (barW + gap);
+                    const grad = ctx.createLinearGradient(0, y, 0, y - h);
+                    grad.addColorStop(0, botColor);
+                    grad.addColorStop(1, topColor);
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, y - h, barW, h, [3, 3, 0, 0]);
+                    ctx.fill();
+                }
+            } else if(type === 'neon-bars') {
+                ctx.save();
+                ctx.shadowColor = botColor;
+                ctx.shadowBlur = 15;
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH);
+                    const bx = startX + i * (barW + gap);
+                    ctx.fillStyle = botColor;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, y - h/2, barW, h, 4);
+                    ctx.fill();
+                }
+                ctx.restore();
+            } else if(type === 'rgb-bars') {
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH);
+                    const bx = startX + i * (barW + gap);
+                    const hue = (i * (360 / count) + time * 60) % 360;
+                    ctx.fillStyle = `hsl(${hue}, 100%, 55%)`;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, y - h, barW, h, [2, 2, 0, 0]);
+                    ctx.fill();
+                }
+            } else if(type === 'mirror-bars') {
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH * 0.7);
+                    const bx = startX + i * (barW + gap);
+                    const grad = ctx.createLinearGradient(0, y - h, 0, y + h);
+                    grad.addColorStop(0, topColor);
+                    grad.addColorStop(0.5, botColor);
+                    grad.addColorStop(1, topColor);
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, y - h, barW, h * 2, 3);
+                    ctx.fill();
+                }
+            } else if(type === 'trap-nation' || type === 'circular' || type === 'speaker-beat') {
+                const centerX = x;
+                const centerY = y - 40;
+                const radius = Math.min(width, maxH) * 0.35 + (bassEnergy * 25);
+
+                // Central Bass Subwoofer Ring
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+                ctx.fill();
+                ctx.lineWidth = 4 + (bassEnergy * 8);
+                ctx.strokeStyle = botColor;
+                ctx.shadowColor = botColor;
+                ctx.shadowBlur = 18;
+                ctx.stroke();
+
+                // Inner Speaker Center
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = botColor;
+                ctx.fill();
+                ctx.restore();
+
+                // Radial Rays / Circular Bars
+                for(let i=0; i<count; i++) {
+                    const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+                    const val = (freqs[i % freqs.length] / 255);
+                    const barLen = Math.max(idleH, val * maxH * 0.7);
+                    const x1 = centerX + Math.cos(angle) * radius;
+                    const y1 = centerY + Math.sin(angle) * radius;
+                    const x2 = centerX + Math.cos(angle) * (radius + barLen);
+                    const y2 = centerY + Math.sin(angle) * (radius + barLen);
+
+                    ctx.strokeStyle = (i % 2 === 0) ? botColor : topColor;
+                    ctx.lineWidth = Math.max(2, (Math.PI * 2 * radius / count) - 2);
+                    ctx.lineCap = "round";
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+            } else if(type === 'trap-nation-blob') {
+                const centerX = x;
+                const centerY = y - 40;
+                const baseR = Math.min(width, maxH) * 0.35;
+
+                ctx.save();
+                ctx.beginPath();
+                for(let i=0; i<count; i++) {
+                    const angle = (i / count) * Math.PI * 2;
+                    const val = (freqs[i % freqs.length] / 255);
+                    const r = baseR + val * (maxH * 0.5);
+                    const px = centerX + Math.cos(angle) * r;
+                    const py = centerY + Math.sin(angle) * r;
+                    if(i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                const grad = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, baseR * 1.6);
+                grad.addColorStop(0, botColor);
+                grad.addColorStop(1, topColor);
+                ctx.fillStyle = grad;
+                ctx.shadowColor = botColor;
+                ctx.shadowBlur = 20;
+                ctx.fill();
+                ctx.restore();
+            } else if(type === 'podcast' || type === 'center-short') {
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH * 0.6);
+                    const bx = startX + i * (barW + gap);
+                    ctx.fillStyle = botColor;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, y - h, barW, h * 2, barW / 2);
+                    ctx.fill();
+                }
+            } else if(type === 'waveform-glow' || type === 'oscilloscope') {
+                ctx.save();
+                ctx.strokeStyle = botColor;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = botColor;
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const px = startX + i * (width / count);
+                    const py = y - (val * maxH * 0.8) * Math.sin((i / count) * Math.PI);
+                    if(i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                ctx.restore();
+            } else if(type === 'radial') {
+                const cx = x;
+                const cy = y - 40;
+                const baseR = 40;
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(time * 0.5);
+                for(let i=0; i<count; i++) {
+                    const angle = (i / count) * Math.PI * 2;
+                    const val = (freqs[i % freqs.length] / 255);
+                    const len = baseR + val * (maxH * 0.6);
+                    ctx.strokeStyle = botColor;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(angle) * baseR, Math.sin(angle) * baseR);
+                    ctx.lineTo(Math.cos(angle) * len, Math.sin(angle) * len);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            } else {
+                // Fallback default
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH);
+                    const bx = startX + i * (barW + gap);
+                    ctx.fillStyle = botColor;
+                    ctx.fillRect(bx, y - h, barW, h);
+                }
+            }
+        }
+
+        // ==========================================
+        // 🌟 HIGH-PERFORMANCE VISUAL EFFECTS LOGIC (CANVAS 2D)
+        // ==========================================
+        function A_rand(u, seed) {
+            const x = Math.sin(u * 127.1 + seed * 311.7) * 43758.5453123;
+            return x - Math.floor(x);
+        }
+
+        function renderStudioVisualEffects(e, preset, t, n, r, o) {
+            const count = Math.min(250, Math.round(t.count));
+            const cycle = t.cycleDuration || 12;
+
+            if(preset === 'sakura') {
+                for(let u = 0; u < count; u++) {
+                    const p = A_rand(u, 7) * cycle;
+                    const l = (n * t.speed * 0.8 + p) % cycle / cycle;
+                    const c = (A_rand(u, 4) * 0.5 + 0.5);
+                    const d = Math.sin(l * Math.PI * 4 + A_rand(u, 8) * Math.PI * 2) * 30 * Math.abs(t.wind + 1);
+                    const f = (A_rand(u, 1) * r + t.wind * 100 * l + d) % r;
+                    const h = (A_rand(u, 2) * o + l * o * c) % o;
+                    const m = A_rand(u, 9) * Math.PI * 2 + n * (A_rand(u, 10) - 0.5) * 3;
+                    const M = (A_rand(u, 3) * 6 + 4) * t.size;
+
+                    e.save();
+                    e.translate(f < 0 ? f + r : f, h < 0 ? h + o : h);
+                    e.rotate(m);
+                    e.globalAlpha = 0.85;
+                    e.fillStyle = t.color || "#ffb7c5";
+                    e.beginPath();
+                    for(let g = 0; g < 5; g++) {
+                        const y = g / 5 * Math.PI * 2;
+                        const w = Math.cos(y) * M;
+                        const k = Math.sin(y) * M;
+                        g === 0 ? e.moveTo(w, k) : e.quadraticCurveTo(0, 0, w, k);
+                    }
+                    e.closePath();
+                    e.fill();
+                    e.restore();
+                }
+            } else if(preset === 'snow') {
+                for(let u = 0; u < count; u++) {
+                    const p = A_rand(u, 5) * 18 * Math.abs(t.wind);
+                    const l = A_rand(u, 6) * 1.5 + 0.5;
+                    const c = A_rand(u, 7) * cycle;
+                    const d = (n * t.speed * 0.7 + c) % cycle / cycle;
+                    const m = (A_rand(u, 4) * 0.6 + 0.4);
+                    const M = (A_rand(u, 1) * r + t.wind * 80 * d + p * Math.sin(d * Math.PI * 2 * l)) % r;
+                    const v = (A_rand(u, 2) * o + d * o * m) % o;
+                    const g = (A_rand(u, 3) * 3.5 + 1.2) * t.size;
+
+                    e.beginPath();
+                    e.arc(M < 0 ? M + r : M, v < 0 ? v + o : v, g, 0, Math.PI * 2);
+                    e.fillStyle = "rgba(255, 255, 255, 0.85)";
+                    e.fill();
+                }
+            } else if(preset === 'leaves') {
+                const colors = ["#8B4513", "#228B22", "#DC143C", "#DAA520", "#FF8C00"];
+                for(let u = 0; u < count; u++) {
+                    const p = A_rand(u, 7) * cycle;
+                    const l = (n * t.speed * 0.6 + p) % cycle / cycle;
+                    const d = Math.sin(l * Math.PI * 3 + A_rand(u, 8) * Math.PI * 2) * 40 * Math.abs(t.wind + 1);
+                    const f = (A_rand(u, 1) * r + t.wind * 120 * l + d) % r;
+                    const h = (A_rand(u, 2) * o + l * o * (A_rand(u, 4) * 0.6 + 0.4)) % o;
+                    const m = A_rand(u, 9) * Math.PI * 2 + n * (A_rand(u, 10) - 0.5) * 2;
+                    const M = (A_rand(u, 3) * 8 + 5) * t.size;
+
+                    e.save();
+                    e.translate(f < 0 ? f + r : f, h < 0 ? h + o : h);
+                    e.rotate(m);
+                    e.fillStyle = colors[Math.floor(A_rand(u, 3) * colors.length)];
+                    e.globalAlpha = 0.85;
+                    e.beginPath();
+                    e.ellipse(0, 0, M, M * 0.5, 0, 0, Math.PI * 2);
+                    e.fill();
+                    e.restore();
+                }
+            } else if(preset === 'rain' || preset === 'drizzle') {
+                const len = preset === 'rain' ? 24 * t.size : 12 * t.size;
+                e.strokeStyle = preset === 'rain' ? "rgba(200, 225, 255, 0.6)" : "rgba(220, 235, 255, 0.35)";
+                e.lineWidth = preset === 'rain' ? 1.5 : 1;
+                for(let u = 0; u < count; u++) {
+                    const d = (n * t.speed * 2.5 + A_rand(u, 5) * cycle) % cycle / cycle;
+                    const x = (A_rand(u, 1) * r + t.wind * 150 * d) % r;
+                    const y = (A_rand(u, 2) * o + d * o * 2) % o;
+
+                    e.beginPath();
+                    e.moveTo(x < 0 ? x + r : x, y < 0 ? y + o : y);
+                    e.lineTo((x < 0 ? x + r : x) + t.wind * 8, (y < 0 ? y + o : y) + len);
+                    e.stroke();
+                }
+            } else if(preset === 'bokeh') {
+                for(let u = 0; u < count; u++) {
+                    const x = (A_rand(u, 1) * r + Math.sin(n * 0.3 + u) * 40) % r;
+                    const y = (A_rand(u, 2) * o + Math.cos(n * 0.4 + u) * 30) % o;
+                    const rad = (A_rand(u, 3) * 28 + 10) * t.size;
+                    const alp = (Math.sin(n * t.speed + u) * 0.2 + 0.35);
+
+                    const grad = e.createRadialGradient(x, y, 0, x, y, rad);
+                    grad.addColorStop(0, t.color || 'rgba(255, 200, 100, 0.8)');
+                    grad.addColorStop(1, 'rgba(255, 200, 100, 0)');
+                    e.fillStyle = grad;
+                    e.globalAlpha = alp;
+                    e.beginPath();
+                    e.arc(x, y, rad, 0, Math.PI * 2);
+                    e.fill();
+                    e.globalAlpha = 1.0;
+                }
+            } else if(preset === 'sparkle' || preset === 'firefly') {
+                for(let u = 0; u < count; u++) {
+                    const x = (A_rand(u, 1) * r + Math.sin(n * t.speed + u) * 50) % r;
+                    const y = (A_rand(u, 2) * o + Math.cos(n * t.speed * 0.8 + u) * 40) % o;
+                    const sz = (A_rand(u, 3) * 4 + 2) * t.size;
+                    const pulse = Math.abs(Math.sin(n * t.speed * 2 + u * 2));
+
+                    e.save();
+                    e.translate(x < 0 ? x + r : x, y < 0 ? y + o : y);
+                    e.fillStyle = t.color || (preset === 'firefly' ? "#a3e635" : "#fef08a");
+                    e.shadowColor = t.color || "#fef08a";
+                    e.shadowBlur = 12 * pulse;
+                    e.globalAlpha = pulse * 0.9;
+                    e.beginPath();
+                    e.arc(0, 0, sz * pulse, 0, Math.PI * 2);
+                    e.fill();
+                    e.restore();
+                }
+            } else if(preset === 'bubbles') {
+                for(let u = 0; u < count; u++) {
+                    const l = (n * t.speed * 0.5 + A_rand(u, 7) * cycle) % cycle / cycle;
+                    const x = (A_rand(u, 1) * r + Math.sin(l * Math.PI * 4 + u) * 25) % r;
+                    const y = (A_rand(u, 2) * o - l * o) % o;
+                    const rad = (A_rand(u, 3) * 14 + 5) * t.size;
+
+                    e.save();
+                    e.strokeStyle = "rgba(255, 255, 255, 0.7)";
+                    e.lineWidth = 1.5;
+                    e.beginPath();
+                    const realY = y < 0 ? y + o : y;
+                    e.arc(x, realY, rad, 0, Math.PI * 2);
+                    e.stroke();
+                    // Bubble shine arc
+                    e.beginPath();
+                    e.arc(x - rad * 0.3, realY - rad * 0.3, rad * 0.4, 0, Math.PI * 0.5, true);
+                    e.stroke();
+                    e.restore();
+                }
+            } else if(preset === 'hearts') {
+                for(let u = 0; u < count; u++) {
+                    const l = (n * t.speed * 0.5 + A_rand(u, 7) * cycle) % cycle / cycle;
+                    const x = (A_rand(u, 1) * r + Math.sin(l * Math.PI * 2 + u) * 30) % r;
+                    const y = (A_rand(u, 2) * o - l * o) % o;
+                    const sz = (A_rand(u, 3) * 10 + 6) * t.size;
+
+                    e.save();
+                    e.translate(x < 0 ? x + r : x, y < 0 ? y + o : y);
+                    e.fillStyle = t.color || "rgba(244, 63, 94, 0.8)";
+                    e.beginPath();
+                    e.moveTo(0, 0);
+                    e.bezierCurveTo(-sz/2, -sz/2, -sz, sz/3, 0, sz);
+                    e.bezierCurveTo(sz, sz/3, sz/2, -sz/2, 0, 0);
+                    e.fill();
+                    e.restore();
+                }
+            } else if(preset === 'fog' || preset === 'smoke') {
+                for(let u = 0; u < Math.min(count, 35); u++) {
+                    const l = (n * t.speed * 0.3 + A_rand(u, 7) * cycle) % cycle / cycle;
+                    const x = (A_rand(u, 1) * r + t.wind * 100 * l + Math.sin(l * Math.PI * 2) * 50) % r;
+                    const y = (A_rand(u, 2) * o + Math.cos(l * Math.PI * 2) * 20) % o;
+                    const rad = (A_rand(u, 3) * 120 + 80) * t.size;
+
+                    const grad = e.createRadialGradient(x, y, 0, x, y, rad);
+                    grad.addColorStop(0, "rgba(255, 255, 255, 0.12)");
+                    grad.addColorStop(0.5, "rgba(255, 255, 255, 0.05)");
+                    grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+                    e.fillStyle = grad;
+                    e.beginPath();
+                    e.arc(x, y, rad, 0, Math.PI * 2);
+                    e.fill();
+                }
+            } else if(preset === 'dust') {
+                for(let u = 0; u < count; u++) {
+                    const x = (A_rand(u, 1) * r + Math.sin(n * 0.5 + u) * 30 + t.wind * 50) % r;
+                    const y = (A_rand(u, 2) * o + Math.cos(n * 0.4 + u) * 25) % o;
+                    const rad = (A_rand(u, 3) * 2 + 0.8) * t.size;
+                    e.fillStyle = "rgba(255, 255, 255, 0.6)";
+                    e.beginPath();
+                    e.arc(x < 0 ? x + r : x, y < 0 ? y + o : y, rad, 0, Math.PI * 2);
+                    e.fill();
+                }
+            } else if(preset === 'confetti') {
+                const confColors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
+                for(let u = 0; u < count; u++) {
+                    const l = (n * t.speed * 0.8 + A_rand(u, 7) * cycle) % cycle / cycle;
+                    const x = (A_rand(u, 1) * r + t.wind * 100 * l + Math.sin(l * Math.PI * 4) * 30) % r;
+                    const y = (A_rand(u, 2) * o + l * o * 1.5) % o;
+                    const sz = (A_rand(u, 3) * 8 + 4) * t.size;
+                    const rot = n * 4 + u;
+
+                    e.save();
+                    e.translate(x < 0 ? x + r : x, y < 0 ? y + o : y);
+                    e.rotate(rot);
+                    e.fillStyle = confColors[u % confColors.length];
+                    e.fillRect(-sz/2, -sz/4, sz, sz/2);
+                    e.restore();
+                }
+            } else if(preset === 'glitter' || preset === 'stardust') {
+                for(let u = 0; u < count; u++) {
+                    const l = (n * t.speed * 0.4 + A_rand(u, 7) * cycle) % cycle / cycle;
+                    const x = (A_rand(u, 1) * r + t.wind * 60 * l) % r;
+                    const y = (A_rand(u, 2) * o + l * o * 0.2) % o;
+                    const sz = (A_rand(u, 3) * 2.5 + 0.6) * t.size;
+                    const f = (Math.sin(n * 5 + u * 3) + 1) / 2;
+
+                    e.fillStyle = t.color || "#aaddff";
+                    e.globalAlpha = 0.3 + f * 0.7;
+                    e.beginPath();
+                    e.arc(x < 0 ? x + r : x, y < 0 ? y + o : y, sz, 0, Math.PI * 2);
+                    e.fill();
+                    e.globalAlpha = 1.0;
+                }
+            } else if(preset === 'goldrain') {
+                for(let u = 0; u < count; u++) {
+                    const l = (n * t.speed * 0.9 + A_rand(u, 7) * cycle) % cycle / cycle;
+                    const x = (A_rand(u, 1) * r + t.wind * 80 * l) % r;
+                    const y = (A_rand(u, 2) * o + l * o * 1.2) % o;
+                    const w = (A_rand(u, 3) * 3 + 1.5) * t.size;
+                    const h = w * 2.8;
+
+                    e.save();
+                    e.translate(x < 0 ? x + r : x, y < 0 ? y + o : y);
+                    e.rotate(n * 2 + u);
+                    e.fillStyle = "hsl(48, 100%, 55%)";
+                    e.shadowColor = "#eab308";
+                    e.shadowBlur = 6;
+                    e.fillRect(-w/2, -h/2, w, h);
+                    e.restore();
+                }
+            } else if(preset === 'stars') {
+                for(let u = 0; u < Math.min(count, 15); u++) {
+                    const l = (n * t.speed * 1.2 + A_rand(u, 7) * cycle) % cycle / cycle;
+                    const dir = Math.PI / 4;
+                    const x = (A_rand(u, 1) * r + Math.cos(dir) * l * r * 1.5) % r;
+                    const y = (A_rand(u, 2) * o + Math.sin(dir) * l * o * 1.5) % o;
+                    const tail = 40 * t.size * (1 - l);
+
+                    e.save();
+                    e.translate(x, y);
+                    e.rotate(dir);
+                    e.strokeStyle = "#ffffcc";
+                    e.lineWidth = 2 * t.size;
+                    e.shadowColor = "#ffffcc";
+                    e.shadowBlur = 10;
+                    e.beginPath();
+                    e.moveTo(0, 0);
+                    e.lineTo(-tail, 0);
+                    e.stroke();
+                    e.restore();
+                }
+            } else if(preset === 'lensflare') {
+                const cx = r * 0.4;
+                const cy = o * 0.3;
+                const rad = 140 * t.size;
+                const grad = e.createRadialGradient(cx, cy, 0, cx, cy, rad);
+                grad.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+                grad.addColorStop(0.3, "rgba(255, 200, 100, 0.3)");
+                grad.addColorStop(1, "rgba(255, 200, 100, 0)");
+                e.fillStyle = grad;
+                e.beginPath();
+                e.arc(cx, cy, rad, 0, Math.PI * 2);
+                e.fill();
+
+                e.strokeStyle = "rgba(255, 220, 150, 0.4)";
+                e.lineWidth = 2;
+                e.beginPath();
+                e.moveTo(0, cy);
+                e.lineTo(r, cy);
+                e.stroke();
+            } else if(preset === 'glitch') {
+                const a = Math.floor(n * 15);
+                for(let u = 0; u < 4; u++) {
+                    if(A_rand(a + u, 99) > 0.6) continue;
+                    const p = A_rand(a + u, u) * o;
+                    const l = A_rand(a + u, u + 1) * 30 + 4;
+                    const c = (A_rand(a + u, u + 2) - 0.5) * 25 * t.size;
+                    e.save();
+                    e.globalAlpha = 0.5;
+                    e.drawImage(e.canvas, c, 0, r, o, 0, p, r, l);
+                    e.restore();
+                }
+            } else if(preset === 'shatter') {
+                const a = Math.floor(n * 12);
+                for(let u = 0; u < 5; u++) {
+                    if(A_rand(a + u, 77) > 0.5) continue;
+                    const px = A_rand(a + u, u) * r;
+                    const py = A_rand(a + u, u + 1) * o;
+                    const cw = (A_rand(a + u, u + 2) * 60 + 10) * t.size;
+                    const ch = (A_rand(a + u, u + 3) * 20 + 4) * t.size;
+                    const off = (A_rand(a + u, u + 4) - 0.5) * 30 * t.size;
+                    e.save();
+                    e.globalAlpha = 0.6;
+                    e.drawImage(e.canvas, px + off, py, cw, ch, px, py, cw, ch);
+                    e.restore();
+                }
+            } else if(preset === 'tvstatic') {
+                const a = Math.floor(n * 25);
+                for(let y = 0; y < o; y += 8) {
+                    for(let x = 0; x < r; x += 8) {
+                        const val = A_rand(a * 99 + x, y) * 255;
+                        e.fillStyle = `rgba(${val},${val},${val},0.08)`;
+                        e.fillRect(x, y, 8, 8);
+                    }
+                }
+            } else if(preset === 'filmgrain') {
+                renderFilmGrain(e, r, o);
+            } else if(preset === 'matrix') {
+                const charSize = Math.round(14 * t.size);
+                const cols = Math.floor(r / charSize);
+                e.font = `bold ${charSize}px monospace`;
+                e.fillStyle = t.color || "#10b981";
+                for(let l = 0; l < cols; l++) {
+                    const c = A_rand(l, 99) * cycle;
+                    const y = (n * t.speed * 40 + c * 30) % (o + 200) - 100;
+                    const char = String.fromCharCode(Math.floor(A_rand(l, Math.floor(n * 4)) * 60) + 65);
+                    e.globalAlpha = 0.85;
+                    e.fillText(char, l * charSize, y);
+                }
+                e.globalAlpha = 1.0;
+            } else if(preset === 'vhs') {
+                // VHS Scanlines
+                e.fillStyle = "rgba(0, 0, 0, 0.25)";
+                for(let y = 0; y < o; y += 4) {
+                    e.fillRect(0, y, r, 2);
+                }
+            }
+        }
+
+        function renderFilmGrain(ctx, w, h) {
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
+            for(let i=0; i<180; i++) {
+                const gx = Math.random() * w;
+                const gy = Math.random() * h;
+                ctx.globalAlpha = Math.random() * 0.08;
+                ctx.fillRect(gx, gy, 2, 2);
+            }
+            ctx.restore();
+        }
+
+        function setVisualEffectPreset(preset) {
+            redrawStudioCanvas();
+        }
+
+        window.studioFxColorMode = 'custom';
+        function setFxColorPalette(color, el) {
+            document.querySelectorAll('.fx-color-chip').forEach(c => {
+                c.classList.remove('active');
+                c.style.borderColor = '#334155';
+            });
+            if(el) {
+                el.classList.add('active');
+                el.style.borderColor = '#10b981';
+            }
+
+            if(color === 'rainbow') {
+                window.studioFxColorMode = 'rainbow';
+            } else {
+                window.studioFxColorMode = 'custom';
+                const inp = document.getElementById('fx_custom_color');
+                if(inp) inp.value = color;
+            }
+            redrawStudioCanvas();
+        }
+
+        function setVisualizerPalette(mode, botCol, topCol, el) {
+            document.querySelectorAll('.vis-palette-chip').forEach(c => {
+                c.classList.remove('active');
+                c.style.borderColor = '#334155';
+            });
+            if(el) {
+                el.classList.add('active');
+                el.style.borderColor = '#10b981';
+            }
+
+            if(botCol === 'rainbow') {
+                document.getElementById(mode + '_spectrum_type').value = 'rgb-bars';
+            } else {
+                const bInp = document.getElementById(mode + '_color_bot');
+                const tInp = document.getElementById(mode + '_color_top');
+                if(bInp) bInp.value = botCol;
+                if(tInp) tInp.value = topCol;
+            }
+            redrawStudioCanvas();
+        }
+
+        function toggleCanvasFullscreen() {
+            const box = document.getElementById('studio_canvas_box');
+            if(!box) return;
+            if(!document.fullscreenElement) {
+                box.requestFullscreen().catch(err => {});
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function toggleTimelineZoom(delta) {
+            // Adjust timeline scale
+        }
+
+        function studioUndo() {}
+        function studioRedo() {}
+
+        function initApp() {
+            injectVisualizer('visVodStudio', 'vod');
+            injectVisualizer('visLive', 'live');
+            loadChannels();
+            fetchAnalyticsData();
+            checkApiStatus();
+            setInterval(fetchDataFromServer, 2000);
+            refreshPresetDropdowns();
+            setTimeout(redrawStudioCanvas, 300);
+        }
     </script>
     
     <div style="position: fixed; bottom: 25px; right: 25px; background: #ffffff; border: 1px solid var(--border); padding: 15px 20px; border-radius: 12px; font-family: 'Segoe UI'; font-size: 13px; z-index: 9999; box-shadow: var(--shadow-hover); display:flex; gap:20px; align-items:center;">
