@@ -4,6 +4,8 @@ import queue
 import threading
 import subprocess
 import math
+import random
+import re
 import numpy as np
 import cv2
 import librosa
@@ -11,7 +13,7 @@ import imageio
 import shutil
 import json
 import datetime as dt
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 
@@ -685,6 +687,128 @@ def transcribe_lyrics():
         "segments": segments
     })
 
+@app.route('/api/generate_ai_seo', methods=['POST'])
+def generate_ai_seo():
+    req_data = request.json or dict(request.form)
+    raw_query = req_data.get('title', '').strip()
+    genre = req_data.get('genre', 'Pop / Umum')
+    lyrics = req_data.get('lyrics', '').strip()
+
+    # Clean raw title
+    clean_q = re.sub(r'^\d+[\.\-\s_]+', '', raw_query)
+    clean_q = re.sub(r'\.(mp3|wav|m4a|mp4|flac)$', '', clean_q, flags=re.IGNORECASE)
+    clean_q = re.sub(r'[\(\[\{].*?[\)\]\}]', '', clean_q)
+    clean_q = clean_q.replace('_', ' ').strip()
+    if not clean_q: clean_q = "Lagu Terbaru Indonesia"
+
+    artist = ""
+    song_name = clean_q
+    if " - " in clean_q:
+        parts = clean_q.split(" - ", 1)
+        artist = parts[0].strip()
+        song_name = parts[1].strip()
+
+    year = datetime.now().year
+
+    # Try Free Cloud AI Generation
+    ai_generated = False
+    titles = []
+    desc = ""
+    tags = ""
+
+    try:
+        prompt = f"""Kamu adalah YouTube SEO Master untuk channel musik.
+Buatkan metadata SEO YouTube terbaik untuk lagu: "{clean_q}" dengan genre "{genre}".
+Lirik (jika ada): "{lyrics[:200]}"
+
+Berikan output JSON murni dengan format persis:
+{{
+  "titles": [
+    "Judul 1 (Official Lyric Video format)",
+    "Judul 2 (Catchy & Viral)",
+    "Judul 3 (Full Audio HQ)"
+  ],
+  "description": "Deskripsi lengkap YouTube SEO dengan sambutan, info lagu, lirik singkat, disclaimer copyright, dan hashtag",
+  "tags": "tag1, tag2, tag3, tag4, tag5, tag6, tag7, tag8, tag9, tag10, tag11, tag12, tag13, tag14, tag15"
+}}"""
+
+        res = requests.post(
+            "https://text.pollinations.ai/",
+            json={"messages": [{"role": "user", "content": prompt}], "model": "mistral", "jsonMode": True},
+            timeout=8
+        )
+        if res.status_code == 200:
+            parsed = json.loads(res.text)
+            if "titles" in parsed and "description" in parsed:
+                titles = parsed.get("titles", [])
+                desc = parsed.get("description", "")
+                tags = parsed.get("tags", "")
+                if isinstance(tags, list): tags = ", ".join(tags)
+                ai_generated = True
+    except Exception as e:
+        print(f"AI Cloud Error (using algorithmic fallback): {e}")
+
+    # High-Performance Algorithmic Fallback Engine
+    if not ai_generated or not titles:
+        if artist:
+            titles = [
+                f"{artist} - {song_name} (Official Lyric Video) | Terbaru {year}",
+                f"{song_name} - {artist} (Lirik & Audio HQ Jernih)",
+                f"{artist} - {song_name} [Full Bass Lirik Video]"
+            ]
+        else:
+            titles = [
+                f"{song_name} - (Official Lyric Video) | Terbaru {year}",
+                f"{song_name} - Lirik Lagu & Audio Jernih",
+                f"{song_name} [Full Bass Audio HQ]"
+            ]
+
+        # Formulate rich SEO description
+        lrc_clean = re.sub(r'\[\d{2}:\d{2}\.\d{2}\]', '', lyrics).strip() if lyrics else ""
+        if len(lrc_clean) > 500: lrc_clean = lrc_clean[:500] + "..."
+
+        desc = f"""🎵 {titles[0]}
+
+Selamat datang di channel kami! Nikmati suguhan alunan musik terbaik dan berkualitas tinggi dengan audio jernih.
+
+▶️ Dengarkan, resapi liriknya, dan jangan lupa untuk Like, Comment, & Subscribe untuk update lagu terbaru setiap hari!
+
+📜 Lirik Lagu:
+{lrc_clean if lrc_clean else f"(Lirik lagu {song_name} oleh {artist if artist else 'Musisi Terkait'})"}
+
+━━━━━━━━━━━━━━━━━━━━
+⚠️ DISCLAIMER:
+Hak cipta rekaman suara, melodi, dan lirik lagu sepenuhnya merupakan milik pencipta lagu, artis, serta label rekaman terkait. Video ini dibuat untuk hiburan dan apresiasi karya musik.
+
+#{song_name.replace(' ', '')} #{artist.replace(' ', '') if artist else 'MusikTerbaru'} #LaguTrending #{genre.replace(' ', '').replace('/', '')} #LyricVideo #ViralTikTok #{year}"""
+
+        base_tags = [
+            clean_q,
+            song_name,
+            f"{song_name} lirik",
+            f"lirik {song_name}",
+            f"{song_name} official lyric video",
+            f"{clean_q} {year}",
+            f"lagu {genre} terbaru",
+            "lagu viral tiktok",
+            "lagu trending youtube",
+            "musik santai",
+            "audio jernih",
+            f"lagu indonesia {year}"
+        ]
+        if artist:
+            base_tags.insert(1, artist)
+            base_tags.insert(3, f"{artist} terbaru")
+            base_tags.insert(4, f"{artist} {song_name}")
+        tags = ", ".join(dict.fromkeys(base_tags))
+
+    return jsonify({
+        "status": "success",
+        "titles": titles,
+        "description": desc,
+        "tags": tags
+    })
+
 
 @app.route('/api/delete_channel', methods=['POST'])
 def delete_channel():
@@ -774,36 +898,124 @@ def get_youtube_analytics():
 
 @app.route('/api/upload_vod', methods=['POST'])
 def handle_upload_vod():
-    t_id = int(time.time()); audios = request.files.getlist('audios'); bgs = request.files.getlist('background'); a_ps = []; v_ps = []
-    for i, a in enumerate(audios): 
-        if a.filename: p = f"uploads/vod_a_{t_id}_{i}.mp3"; a.save(p); a_ps.append(p)
-    for i, b in enumerate(bgs): 
-        if b.filename: p = f"uploads/vod_v_{t_id}_{i}{os.path.splitext(b.filename)[1]}"; b.save(p); v_ps.append(p)
-    thumb_file = request.files.get('thumbnail'); thumb_path = ""
-    if thumb_file and thumb_file.filename: thumb_path = f"uploads/vod_thumb_{t_id}{os.path.splitext(thumb_file.filename)[1]}"; thumb_file.save(thumb_path)
+    batch_mode = request.form.get('batch_mode', 'single')
+    audios = request.files.getlist('audios')
+    bgs = request.files.getlist('background')
+    
+    valid_audios = [a for a in audios if a and a.filename]
+    valid_bgs = [b for b in bgs if b and b.filename]
+    
+    if not valid_audios:
+        return jsonify({"status": "error", "message": "Pilih minimal 1 file audio!"})
+    
+    # 📦 BATCH MULTI-AUDIO RENDERING: MODE MASSAL TERPISAH (1 Lagu = 1 Video Mandiri)
+    if batch_mode == 'separate' and len(valid_audios) > 1:
+        base_sched = request.form.get('schedule', '')
+        interval_hours = float(request.form.get('schedule_interval', 0) or 0)
+        base_dt = datetime.strptime(base_sched.replace(' ', 'T'), "%Y-%m-%dT%H:%M") if base_sched else None
+        
+        t_batch_id = int(time.time())
+        saved_bgs = []
+        for j, b in enumerate(valid_bgs):
+            bg_p = f"uploads/vod_bg_batch_{t_batch_id}_{j}{os.path.splitext(b.filename)[1]}"
+            b.save(bg_p)
+            saved_bgs.append(bg_p)
+            
+        thumb_file = request.files.get('thumbnail')
+        shared_thumb_path = ""
+        if thumb_file and thumb_file.filename:
+            shared_thumb_path = f"uploads/vod_thumb_batch_{t_batch_id}{os.path.splitext(thumb_file.filename)[1]}"
+            thumb_file.save(shared_thumb_path)
+            
+        created_count = 0
+        for i, a in enumerate(valid_audios):
+            sub_id = t_batch_id + i + 1
+            audio_p = f"uploads/vod_a_{sub_id}.mp3"
+            a.save(audio_p)
+            
+            # Map background 1:1 or cycle
+            assigned_bgs = []
+            if saved_bgs:
+                assigned_bgs = [saved_bgs[i % len(saved_bgs)]]
+                
+            raw_title = os.path.splitext(a.filename)[0]
+            clean_title = raw_title.replace('_', ' ').strip()
+            
+            user_title_fmt = request.form.get('title', '')
+            if '{title}' in user_title_fmt or '{nama}' in user_title_fmt:
+                song_title = user_title_fmt.replace('{title}', clean_title).replace('{nama}', clean_title)
+            else:
+                song_title = clean_title
+                
+            if base_dt and interval_hours > 0:
+                item_sched_dt = base_dt + dt.timedelta(hours=i * interval_hours)
+                item_sched_str = item_sched_dt.strftime("%Y-%m-%d %H:%M")
+                item_sched_val = item_sched_dt.strftime("%Y-%m-%dT%H:%M")
+            elif base_sched:
+                item_sched_str = base_sched.replace('T', ' ')
+                item_sched_val = base_sched
+            else:
+                item_sched_str = "Langsung"
+                item_sched_val = ""
+                
+            meta = {
+                "channel_yt_id": request.form.get('channel_select', ''),
+                "title": song_title,
+                "description": request.form.get('description', '').replace('{title}', song_title),
+                "tags": request.form.get('tags', ''),
+                "playlist_id": request.form.get('playlist', ''),
+                "thumbnail_path": shared_thumb_path,
+                "schedule": item_sched_val,
+                "privacy": request.form.get('privacy', 'public')
+            }
+            
+            loop_count = int(request.form.get('loop_count', 1))
+            form_data = dict(request.form)
+            form_data['title'] = song_title
+            
+            active_tasks.append({"id": sub_id, "type": "📺 VOD", "title": song_title, "time": item_sched_str, "status": "In Queue ⏳"})
+            render_queue.put({"id": sub_id, "audio_paths": [audio_p], "bg_paths": assigned_bgs, "vis": form_data, "loop_count": loop_count, "metadata": meta})
+            created_count += 1
+            
+        save_tasks_db()
+        return jsonify({
+            "status": "success",
+            "message": f"🎉 Berhasil memproduksi {created_count} antrean video massal terpisah!",
+            "count": created_count
+        })
+        
+    else:
+        # Default single / compilation mode
+        t_id = int(time.time()); a_ps = []; v_ps = []
+        for i, a in enumerate(valid_audios): 
+            p = f"uploads/vod_a_{t_id}_{i}.mp3"; a.save(p); a_ps.append(p)
+        for i, b in enumerate(valid_bgs): 
+            p = f"uploads/vod_v_{t_id}_{i}{os.path.splitext(b.filename)[1]}"; b.save(p); v_ps.append(p)
+        thumb_file = request.files.get('thumbnail'); thumb_path = ""
+        if thumb_file and thumb_file.filename: thumb_path = f"uploads/vod_thumb_{t_id}{os.path.splitext(thumb_file.filename)[1]}"; thumb_file.save(thumb_path)
 
-    metadata = {
-        "channel_yt_id": request.form.get('channel_select', ''), 
-        "title": request.form.get('title', ''), 
-        "description": request.form.get('description', ''), 
-        "tags": request.form.get('tags', ''), 
-        "playlist_id": request.form.get('playlist', ''), 
-        "thumbnail_path": thumb_path, 
-        "schedule": request.form.get('schedule', ''),
-        "privacy": request.form.get('privacy', 'public')
-    }
-    
-    sched_raw = request.form.get('schedule', '')
-    sched_str = sched_raw.replace('T', ' ') if sched_raw else "Langsung"
-    loop_count = int(request.form.get('loop_count', 1))
-    
-    active_tasks.append({"id": t_id, "type": "📺 VOD", "title": metadata['title'], "time": sched_str, "status": "In Queue ⏳"})
-    save_tasks_db()
-    
-    form_data = dict(request.form) 
-    render_queue.put({"id": t_id, "audio_paths": a_ps, "bg_paths": v_ps, "vis": form_data, "loop_count": loop_count, "metadata": metadata})
-    
-    return jsonify({"status": "success", "message": "Masuk Antrean VOD!"})
+        metadata = {
+            "channel_yt_id": request.form.get('channel_select', ''), 
+            "title": request.form.get('title', ''), 
+            "description": request.form.get('description', ''), 
+            "tags": request.form.get('tags', ''), 
+            "playlist_id": request.form.get('playlist', ''), 
+            "thumbnail_path": thumb_path, 
+            "schedule": request.form.get('schedule', ''),
+            "privacy": request.form.get('privacy', 'public')
+        }
+        
+        sched_raw = request.form.get('schedule', '')
+        sched_str = sched_raw.replace('T', ' ') if sched_raw else "Langsung"
+        loop_count = int(request.form.get('loop_count', 1))
+        
+        active_tasks.append({"id": t_id, "type": "📺 VOD", "title": metadata['title'], "time": sched_str, "status": "In Queue ⏳"})
+        save_tasks_db()
+        
+        form_data = dict(request.form) 
+        render_queue.put({"id": t_id, "audio_paths": a_ps, "bg_paths": v_ps, "vis": form_data, "loop_count": loop_count, "metadata": metadata})
+        
+        return jsonify({"status": "success", "message": "Masuk Antrean VOD!"})
 
 @app.route('/api/schedule_live', methods=['POST'])
 def handle_schedule_live():

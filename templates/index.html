@@ -319,15 +319,18 @@
                                 
                                 <!-- 1. AUDIO SECTION -->
                                 <div style="margin-bottom:24px;">
-                                    <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-                                        <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
-                                        Audio
+                                    <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
+                                            Audio Tracks (Single / Multi-Audio)
+                                        </div>
+                                        <span id="badge_batch_count" style="display:none; font-size:10px; background:rgba(16,185,129,0.2); color:#10b981; padding:2px 8px; border-radius:10px; font-weight:700;">1 Lagu</span>
                                     </div>
                                     <label for="vod_audio_input" style="display:flex; align-items:center; justify-content:center; gap:10px; background:#1e293b; border:1px dashed #334155; border-radius:10px; padding:16px; cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#334155'">
-                                        <span style="font-size:18px;">🎧</span>
-                                        <div style="text-align:left;">
-                                            <span style="font-size:13px; font-weight:700; color:#f8fafc; display:block;">Upload lagu (mp3/wav/m4a)</span>
-                                            <span id="studio_audio_name" style="font-size:11px; color:#94a3b8;">Klik untuk memilih file audio</span>
+                                        <span style="font-size:20px;">🎧</span>
+                                        <div style="text-align:left; flex:1;">
+                                            <span style="font-size:13px; font-weight:700; color:#f8fafc; display:block;">Pilih 1 s/d 50 File Lagu (MP3/WAV/M4A)</span>
+                                            <span id="studio_audio_name" style="font-size:11px; color:#94a3b8;">Bisa pilih banyak lagu sekaligus untuk produksi massal</span>
                                         </div>
                                     </label>
                                     <input type="file" name="audios" id="vod_audio_input" multiple accept=".mp3,.wav,.m4a" required style="display:none;" onchange="handleStudioAudioUpload(this)">
@@ -335,13 +338,46 @@
                                         <span id="vod_dur_info">Durasi: 00:00:00</span>
                                         <span id="vod_total_info" style="color:#0ea5e9;">Final: 00:00:00</span>
                                     </div>
+
+                                    <!-- BATCH MODE CONTROLS (TAMPIL OTOMATIS SAAT > 1 LAGU DIPILIH) -->
+                                    <div id="batch_production_box" style="display:none; margin-top:12px; background:#0b0f19; border:1px solid #10b981; border-radius:10px; padding:12px;">
+                                        <div style="font-size:11px; font-weight:800; color:#10b981; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                            <span>📦</span> PABRIK RENDER MASSAL AKTIF
+                                        </div>
+                                        <div style="display:flex; flex-direction:column; gap:8px;">
+                                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#f8fafc; font-weight:700; cursor:pointer;">
+                                                <input type="radio" name="batch_mode" value="separate" checked onchange="updateBatchModeUI(this.value)" style="accent-color:#10b981; width:16px; height:16px;">
+                                                <span>1 Lagu = 1 Video Mandiri (Massal Terpisah)</span>
+                                            </label>
+                                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#94a3b8; font-weight:700; cursor:pointer;">
+                                                <input type="radio" name="batch_mode" value="compile" onchange="updateBatchModeUI(this.value)" style="accent-color:#10b981; width:16px; height:16px;">
+                                                <span>1 Video Kompilasi Panjang (Mixtape Gabungan)</span>
+                                            </label>
+                                        </div>
+
+                                        <div id="batch_interval_group" style="margin-top:10px; border-top:1px solid #1e293b; padding-top:8px;">
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                                <span style="font-size:11px; font-weight:700; color:#94a3b8;">JEDA JADWAL UPLOAD ANTAR VIDEO</span>
+                                                <span id="v_batch_interval" style="font-size:11px; font-family:monospace; color:#10b981; font-weight:700;">Otomatis</span>
+                                            </div>
+                                            <select name="schedule_interval" id="batch_schedule_interval" style="background:#1e293b; border:1px solid #334155; color:#fff; font-size:12px; font-weight:700; border-radius:6px; padding:6px 10px; width:100%; margin:0;">
+                                                <option value="0">Tayang Langsung Seketika (Tanpa Jeda)</option>
+                                                <option value="2">Jeda 2 Jam Sekali Tayang</option>
+                                                <option value="4">Jeda 4 Jam Sekali Tayang</option>
+                                                <option value="6">Jeda 6 Jam Sekali Tayang</option>
+                                                <option value="12">Jeda 12 Jam Sekali Tayang</option>
+                                                <option value="24">Jeda 1 Hari (24 Jam) Sekali Tayang</option>
+                                            </select>
+                                            <small style="font-size:10px; color:#64748b; display:block; margin-top:3px;">Setiap video otomatis terjadwal bertahap di YouTube.</small>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- 2. BACKGROUND SECTION (DI BAWAH AUDIO) -->
                                 <div style="margin-bottom:24px;">
                                     <div style="font-size:12px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                                         <span style="display:inline-block; width:3px; height:12px; background:#10b981; border-radius:2px;"></span>
-                                        Background
+                                        Background (Single / Multi-Background)
                                     </div>
                                     <div style="display:flex; background:#1e293b; border-radius:8px; padding:3px; gap:4px; margin-bottom:12px;">
                                         <button type="button" class="bg-mode-btn" onclick="setBgMode('color', this)" style="flex:1; padding:6px; font-size:11px; font-weight:700; border:none; border-radius:6px; background:transparent; color:#94a3b8; cursor:pointer;">Color</button>
@@ -364,8 +400,8 @@
 
                                     <!-- Media File Upload -->
                                     <div id="bg_file_ctrl" style="display:none; margin-top:10px;">
-                                        <label for="vod_bg_input" style="display:block; text-align:center; padding:12px; background:#1e293b; border:1px dashed #334155; border-radius:8px; font-size:12px; color:#94a3b8; cursor:pointer;">
-                                            📁 Pilih File Gambar / Video (.mp4, .jpg, .png)
+                                        <label for="vod_bg_input" style="display:block; text-align:center; padding:14px; background:#1e293b; border:1px dashed #334155; border-radius:8px; font-size:12px; color:#94a3b8; cursor:pointer;">
+                                            📁 Pilih 1 atau Banyak File Gambar/Video (.mp4, .jpg, .png)
                                         </label>
                                         <input type="file" name="background" id="vod_bg_input" multiple accept=".mp4,.jpg,.png" style="display:none;" onchange="handleStudioBgUpload(this)">
                                         <span id="studio_bg_name" style="font-size:11px; color:#64748b; display:block; margin-top:4px;">Belum ada file media latar</span>
@@ -786,6 +822,45 @@
                                     </div>
                                 </div>
 
+                                <!-- 🤖 AI YOUTUBE SEO GENERATOR CARD -->
+                                <div style="background:linear-gradient(135deg, rgba(14,165,233,0.1) 0%, rgba(16,185,129,0.1) 100%); border:1px solid rgba(14,165,233,0.4); padding:14px; border-radius:10px; margin-bottom:16px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:16px;">🤖</span>
+                                            <div>
+                                                <span style="font-weight:800; color:#38bdf8; font-size:12px; display:block;">AI YouTube SEO Generator</span>
+                                                <small style="color:#94a3b8; font-size:10px;">Auto-generate Judul Viral, Deskripsi & Tags</small>
+                                            </div>
+                                        </div>
+                                        <button type="button" id="btn_ai_seo" onclick="generateAiSeoMetadata()" style="background:#0ea5e9; color:white; border:none; padding:6px 12px; font-weight:800; font-size:11px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                                            <span>✨ GENERATE</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                        <div>
+                                            <label style="font-size:9px; font-weight:700; color:#64748b; display:block; margin-bottom:2px;">GENRE / VIBE</label>
+                                            <select id="ai_seo_genre" style="background:#0b0f19; border:1px solid #334155; color:#f8fafc; font-size:11px; font-weight:700; border-radius:6px; padding:6px; width:100%; margin:0;">
+                                                <option value="Pop / Umum">Pop / Umum</option>
+                                                <option value="Dangdut / Koplo">Dangdut / Koplo</option>
+                                                <option value="Lofi / Relax Chill">Lofi / Relax Chill</option>
+                                                <option value="Akustik Santai">Akustik Santai</option>
+                                                <option value="DJ Remix / Jedag Jedug">DJ Remix / Jedag Jedug</option>
+                                                <option value="EDM / Electronic">EDM / Electronic</option>
+                                                <option value="HipHop / Rap">HipHop / Rap</option>
+                                                <option value="Rock / Indie">Rock / Indie</option>
+                                                <option value="Religi / Sholawat">Religi / Sholawat</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="font-size:9px; font-weight:700; color:#64748b; display:block; margin-bottom:2px;">VARIASI JUDUL VIRAL</label>
+                                            <select id="ai_seo_title_select" onchange="applySelectedAiTitle(this.value)" style="background:#0b0f19; border:1px solid #334155; color:#10b981; font-size:11px; font-weight:700; border-radius:6px; padding:6px; width:100%; margin:0;">
+                                                <option value="">-- Klik Generate --</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Metadata -->
                                 <div style="display:flex; flex-direction:column; gap:12px;">
                                     <div>
@@ -824,7 +899,7 @@
                                     </div>
                                 </div>
 
-                                <button type="submit" class="btn-gold" style="margin-top:20px; padding:14px; background:#10b981; font-weight:800; font-size:13px; letter-spacing:0.5px; border-radius:10px; box-shadow:0 6px 20px rgba(16,185,129,0.35);">
+                                <button type="submit" id="btn_submit_vod" class="btn-gold" style="margin-top:20px; padding:14px; background:#10b981; font-weight:800; font-size:13px; letter-spacing:0.5px; border-radius:10px; box-shadow:0 6px 20px rgba(16,185,129,0.35);">
                                     🚀 MULAI RENDER & UPLOAD
                                 </button>
                             </div>
@@ -1727,9 +1802,29 @@
 
         function handleStudioAudioUpload(input) {
             calcAudioDuration(input, 'vod_dur_info');
-            if(input.files && input.files[0]) {
+            const batchBox = document.getElementById('batch_production_box');
+            const batchBadge = document.getElementById('badge_batch_count');
+            const btnSubmit = document.getElementById('btn_submit_vod');
+
+            if(input.files && input.files.length > 0) {
+                const count = input.files.length;
                 const file = input.files[0];
-                document.getElementById('studio_audio_name').innerText = file.name;
+
+                if(count > 1) {
+                    document.getElementById('studio_audio_name').innerText = `✅ ${count} File Lagu Terpilih (Batch Ready)`;
+                    if(batchBox) batchBox.style.display = 'block';
+                    if(batchBadge) {
+                        batchBadge.style.display = 'inline-block';
+                        batchBadge.innerText = `${count} Lagu`;
+                    }
+                    if(btnSubmit) btnSubmit.innerText = `🚀 MULAI PRODUKSI BATCH (${count} VIDEO MASAL)`;
+                } else {
+                    document.getElementById('studio_audio_name').innerText = file.name;
+                    if(batchBox) batchBox.style.display = 'none';
+                    if(batchBadge) batchBadge.style.display = 'none';
+                    if(btnSubmit) btnSubmit.innerText = `🚀 MULAI RENDER & UPLOAD`;
+                }
+
                 document.getElementById('tl_audio_title').innerText = file.name;
                 document.getElementById('studio_project_title').value = file.name.replace(/\.[^/.]+$/, "");
                 syncStudioTitle(document.getElementById('studio_project_title').value);
@@ -1754,6 +1849,21 @@
             }
         }
 
+        function updateBatchModeUI(val) {
+            const intGroup = document.getElementById('batch_interval_group');
+            const btnSubmit = document.getElementById('btn_submit_vod');
+            const audioInput = document.getElementById('vod_audio_input');
+            const count = (audioInput && audioInput.files) ? audioInput.files.length : 1;
+
+            if(val === 'separate') {
+                if(intGroup) intGroup.style.display = 'block';
+                if(btnSubmit) btnSubmit.innerText = `🚀 MULAI PRODUKSI BATCH (${count} VIDEO MASAL)`;
+            } else {
+                if(intGroup) intGroup.style.display = 'none';
+                if(btnSubmit) btnSubmit.innerText = `🚀 RENDER 1 VIDEO KOMPILASI GABUNGAN`;
+            }
+        }
+
         function initStudioAudioContext() {
             if(!studioAudioCtx && studioAudio) {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -1769,15 +1879,21 @@
         }
 
         function handleStudioBgUpload(input) {
-            if(input.files && input.files[0]) {
+            if(input.files && input.files.length > 0) {
+                const count = input.files.length;
+                if(count > 1) {
+                    document.getElementById('studio_bg_name').innerText = `✅ ${count} File Latar Terpilih (1:1 per lagu)`;
+                } else {
+                    document.getElementById('studio_bg_name').innerText = input.files[0].name;
+                }
+
                 const file = input.files[0];
-                document.getElementById('studio_bg_name').innerText = file.name;
                 if(file.type.startsWith('video/')) {
                     if(!studioBgVid) studioBgVid = document.createElement('video');
                     studioBgVid.src = URL.createObjectURL(file);
                     studioBgVid.loop = true;
                     studioBgVid.muted = true;
-                    studioBgVid.play();
+                    studioBgVid.play().catch(e=>{});
                     studioBgImg = null;
                 } else {
                     studioBgImg = new Image();
@@ -3045,6 +3161,86 @@
                 if(msg) msg.innerText = "Koneksi terputus. Silakan coba lagi.";
                 if(btn) btn.style.opacity = "1.0";
             });
+        }
+
+        function generateAiSeoMetadata() {
+            const btn = document.getElementById('btn_ai_seo');
+            const oldHtml = btn ? btn.innerHTML : '';
+            if(btn) {
+                btn.innerHTML = `<span>⏳ Berpikir...</span>`;
+                btn.disabled = true;
+            }
+
+            const projTitle = document.getElementById('studio_project_title') ? document.getElementById('studio_project_title').value : '';
+            const audioName = document.getElementById('studio_audio_name') ? document.getElementById('studio_audio_name').innerText : '';
+            const curTitle = projTitle || audioName || 'Lagu Terbaru';
+            const genre = document.getElementById('ai_seo_genre') ? document.getElementById('ai_seo_genre').value : 'Pop / Umum';
+            const lrcText = document.getElementById('studio_lrc_editor') ? document.getElementById('studio_lrc_editor').value : '';
+
+            fetch('/api/generate_ai_seo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: curTitle,
+                    genre: genre,
+                    lyrics: lrcText
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(btn) {
+                    btn.innerHTML = oldHtml;
+                    btn.disabled = false;
+                }
+
+                if(data.status === 'success') {
+                    // Populate Title Dropdown
+                    const selectEl = document.getElementById('ai_seo_title_select');
+                    if(selectEl && data.titles && data.titles.length > 0) {
+                        selectEl.innerHTML = '';
+                        data.titles.forEach((t, idx) => {
+                            selectEl.innerHTML += `<option value="${t.replace(/"/g, '&quot;')}">${t}</option>`;
+                        });
+                        document.getElementById('vod_final_title').value = data.titles[0];
+                    }
+
+                    // Populate Description
+                    if(data.description) {
+                        const descEl = document.querySelector('textarea[name="description"]');
+                        if(descEl) descEl.value = data.description;
+                    }
+
+                    // Populate Tags
+                    if(data.tags) {
+                        const tagsEl = document.querySelector('input[name="tags"]');
+                        if(tagsEl) tagsEl.value = data.tags;
+                    }
+
+                    // Flash visual feedback on title input
+                    const finalTitle = document.getElementById('vod_final_title');
+                    if(finalTitle) {
+                        finalTitle.style.borderColor = '#10b981';
+                        finalTitle.style.boxShadow = '0 0 10px rgba(16,185,129,0.5)';
+                        setTimeout(() => {
+                            finalTitle.style.borderColor = '#334155';
+                            finalTitle.style.boxShadow = 'none';
+                        }, 1200);
+                    }
+                }
+            })
+            .catch(err => {
+                if(btn) {
+                    btn.innerHTML = oldHtml;
+                    btn.disabled = false;
+                }
+                alert("Gagal menghubungi AI Generator!");
+            });
+        }
+
+        function applySelectedAiTitle(val) {
+            if(val) {
+                document.getElementById('vod_final_title').value = val;
+            }
         }
 
         function toggleCanvasFullscreen() {
