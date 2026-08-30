@@ -265,18 +265,43 @@ class AudioBrain:
 
 class BackgroundManager:
     def __init__(self, bg_paths, w, h):
-        self.bg_paths = bg_paths; self.w = w; self.h = h; self.idx = 0; self.reader = None; self.static_bg = None; self.load_current()
+        self.bg_paths = [p for p in bg_paths if p and os.path.exists(p)] if bg_paths else []
+        self.w = w; self.h = h; self.idx = 0; self.reader = None; self.static_bg = None
+        self.load_current()
     def load_current(self):
-        if self.reader: self.reader.close()
+        if self.reader:
+            try: self.reader.close()
+            except: pass
+            self.reader = None
+        if not self.bg_paths:
+            self.static_bg = np.full((self.h, self.w, 3), (20, 15, 10), dtype=np.uint8)
+            return
         path = self.bg_paths[self.idx]
-        if path.lower().endswith(('.png', '.jpg', '.jpeg')): self.static_bg = cv2.resize(cv2.imread(path), (self.w, self.h))
-        else: self.reader = imageio.get_reader(path, 'ffmpeg')
+        if path.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            img = cv2.imread(path)
+            if img is None: img = np.full((self.h, self.w, 3), (20, 15, 10), dtype=np.uint8)
+            self.static_bg = cv2.resize(img, (self.w, self.h))
+        else:
+            try:
+                self.reader = imageio.get_reader(path, 'ffmpeg')
+            except:
+                self.static_bg = np.full((self.h, self.w, 3), (20, 15, 10), dtype=np.uint8)
     def get_frame(self):
         if self.static_bg is not None: return self.static_bg.copy()
-        try: return cv2.resize(cv2.cvtColor(self.reader.get_next_data(), cv2.COLOR_RGB2BGR), (self.w, self.h))
-        except: self.idx = (self.idx + 1) % len(self.bg_paths); self.load_current(); return self.get_frame()
+        if self.reader:
+            try:
+                data = self.reader.get_next_data()
+                return cv2.resize(cv2.cvtColor(data, cv2.COLOR_RGB2BGR), (self.w, self.h))
+            except:
+                if len(self.bg_paths) > 0:
+                    self.idx = (self.idx + 1) % len(self.bg_paths)
+                    self.load_current()
+                    return self.get_frame()
+        return np.full((self.h, self.w, 3), (20, 15, 10), dtype=np.uint8)
     def close(self):
-        if self.reader: self.reader.close()
+        if self.reader:
+            try: self.reader.close()
+            except: pass
 
 def hex_to_bgr(h, default=(129, 185, 16)):
     if not h or not isinstance(h, str): return default
@@ -543,13 +568,29 @@ def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
     vis = VisualEngine(cfg)
     bg = BackgroundManager(bg_paths, w, h)
     audio = AudioBrain(); audio.load(audio_path)
-    cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-', '-i', audio_path, '-t', str(duration), '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p', output_path]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cmd = [
+        get_ffmpeg_path(), '-y', '-threads', '2',
+        '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-',
+        '-i', audio_path,
+        '-t', str(duration),
+        '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '192k',
+        '-shortest',
+        output_path
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     for f in range(total_f):
         t_sec = f / fps
         v, _, bars = audio.get_data(t_sec, int(cfg.get('bar_count', 64)))
-        proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg, t_sec=t_sec).tobytes())
-    proc.stdin.close(); proc.wait(); bg.close()
+        frame_bytes = vis.process(bg.get_frame(), v, bars, cfg, t_sec=t_sec).tobytes()
+        try:
+            proc.stdin.write(frame_bytes)
+        except (BrokenPipeError, IOError):
+            err_msg = proc.stderr.read().decode('utf-8', errors='ignore') if proc.stderr else "Broken Pipe"
+            raise Exception(f"FFmpeg error: {err_msg[:300]}")
+    proc.stdin.close()
+    proc.wait()
+    bg.close()
 
 def background_worker():
     while True:
@@ -565,7 +606,7 @@ def background_worker():
                 for ap in task['audio_paths']:
                     safe_path = os.path.abspath(ap).replace('\\', '/')
                     f.write(f"file '{safe_path}'\n")
-            subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c', 'copy', base_audio])
+            subprocess.run([get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'concat', '-safe', '0', '-i', c_txt, '-c:a', 'libmp3lame', '-b:a', '192k', base_audio])
             
             audio = AudioBrain(); audio.load(base_audio); base_dur = audio.duration if audio.duration > 0 else 10
             base_video = f"uploads/base_v_{task_id}.mp4"
