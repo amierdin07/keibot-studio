@@ -1,5 +1,9 @@
 channels_db.json
 client_secret.json
+secrets_db.json
+secrets_pool/
+tasks_db.json
 uploads/
 static/
 __pycache__/
+
