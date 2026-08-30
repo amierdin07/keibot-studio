@@ -12,6 +12,7 @@ import librosa
 import imageio
 import shutil
 import json
+import colorsys
 import datetime as dt
 from datetime import datetime, timedelta
 import requests
@@ -313,6 +314,14 @@ def hex_to_bgr(h, default=(129, 185, 16)):
     except:
         return default
 
+def hex_to_rgb(h, default=(16, 185, 129)):
+    bgr = hex_to_bgr(h, (default[2], default[1], default[0]))
+    return (bgr[2], bgr[1], bgr[0])
+
+def hsl_to_bgr(h_deg, s=1.0, l=0.6):
+    r, g, b = colorsys.hls_to_rgb((h_deg % 360) / 360.0, l, s)
+    return (int(b * 255), int(g * 255), int(r * 255))
+
 class VisualEngine:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -320,17 +329,18 @@ class VisualEngine:
         self.col_top = hex_to_bgr(cfg.get('color_top'), (233, 165, 14))
         self.col_part = hex_to_bgr(cfg.get('color_part'), (255, 255, 255))
         self.bar_h = None
-        self.particles = []
         self.fx_particles = []
         
         # Load fonts
         try:
             self.font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
+            self.font_title_lg = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
             self.font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 13)
             lrc_sz = int(float(cfg.get('lrc_font_size', 24)))
             self.font_lyric = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", lrc_sz if lrc_sz > 10 else 24)
         except:
             self.font_title = ImageFont.load_default()
+            self.font_title_lg = ImageFont.load_default()
             self.font_sub = ImageFont.load_default()
             self.font_lyric = ImageFont.load_default()
             
@@ -415,11 +425,11 @@ class VisualEngine:
                         [int(p[0]), int(p[1] + p[3]*3)],
                         [int(p[0] - p[3]*1.5), int(p[1] + p[3]*2)]
                     ], np.int32)
-                    cv2.fillConvexPoly(frame, pts, fx_col)
+                    cv2.fillConvexPoly(frame, pts, fx_col, cv2.LINE_AA)
                 elif fx_preset == 'rain':
-                    cv2.line(frame, (int(p[0]), int(p[1])), (int(p[0] + fx_wind*4), int(p[1] + p[3]*3)), fx_col, 1)
+                    cv2.line(frame, (int(p[0]), int(p[1])), (int(p[0] + fx_wind*4), int(p[1] + p[3]*3)), fx_col, 1, cv2.LINE_AA)
                 else:
-                    cv2.circle(frame, (int(p[0]), int(p[1])), int(p[3]), fx_col, -1)
+                    cv2.circle(frame, (int(p[0]), int(p[1])), int(p[3]), fx_col, -1, cv2.LINE_AA)
 
         # 2. Spectrum Visualizer
         vis_enable = cfg.get('vod_vis_enable', '1') not in ['0', 'false', False]
@@ -428,34 +438,38 @@ class VisualEngine:
             bar_w = max(2, int((tot_w - (space * (n - 1))) / n))
             s_x = int((w * px) - (tot_w / 2.0))
             b_y = int(h * py)
+            is_rainbow = 'rgb' in spec_type or cfg.get('color_bot') == 'rainbow'
 
-            grad = np.zeros((max_h, 1, 3), dtype=np.uint8)
-            for c in range(3):
-                grad[:, 0, c] = np.linspace(self.col_top[c], self.col_bot[c], max_h)
-            f_grad_base = cv2.resize(grad, (w, max_h))
-
-            if 'mirror' in spec_type:
-                mask = np.zeros((h, w), dtype=np.uint8)
+            # A. DNA TWIST HELIX
+            if 'dna' in spec_type or 'helix' in spec_type:
                 for i in range(n):
                     val = self.bar_h[i] * react
-                    bar_len = int(max(idle, min(max_h // 2, val * (max_h // 2))))
-                    x1 = s_x + (i * (bar_w + space))
-                    x2 = x1 + bar_w
-                    y1 = b_y - bar_len
-                    y2 = b_y + bar_len
-                    if x2 > x1 and y2 > y1 and 0 <= x1 < w and 0 <= y1 < h:
-                        cv2.rectangle(mask, (x1, max(0, y1)), (min(w, x2), min(h, y2)), 255, -1)
-                f_grad = np.zeros((h, w, 3), dtype=np.uint8)
-                gy1 = max(0, b_y - max_h // 2); gy2 = min(h, b_y + max_h // 2)
-                f_grad[gy1:gy2, :] = cv2.resize(grad, (w, gy2 - gy1))
-                idx = (mask > 0)
-                frame[idx] = f_grad[idx]
+                    x_i = s_x + int(i * (tot_w / n))
+                    amplitude = max(idle, int(val * max_h * 0.7))
+                    phase = i * 0.25 + t_sec * 3.5
+                    y1 = int(b_y + math.sin(phase) * amplitude)
+                    y2 = int(b_y - math.sin(phase) * amplitude)
+                    
+                    c1 = hsl_to_bgr(i * (360/n) + t_sec*60) if is_rainbow else self.col_bot
+                    c2 = hsl_to_bgr(i * (360/n) + t_sec*60 + 90) if is_rainbow else self.col_top
+                    
+                    cv2.line(frame, (x_i, y1), (x_i, y2), (200, 200, 200), 1, cv2.LINE_AA)
+                    cv2.circle(frame, (x_i, y1), max(3, bar_w // 2), c1, -1, cv2.LINE_AA)
+                    cv2.circle(frame, (x_i, y2), max(3, bar_w // 2), c2, -1, cv2.LINE_AA)
 
-            elif 'trap-nation' in spec_type or 'circular' in spec_type:
+            # B. TRAP NATION & CIRCULAR & SPEAKER BEAT
+            elif 'trap-nation' in spec_type or 'circular' in spec_type or 'speaker' in spec_type or 'radial' in spec_type:
                 center_x, center_y = int(w * px), int(h * py)
-                radius = int(min(w, h) * 0.15 * (1.0 + vol * 0.12))
+                radius = int(min(w, h) * 0.15 * (1.0 + vol * 0.15))
+                
+                cv2.circle(frame, (center_x, center_y), radius, (15, 23, 42), -1)
+                cv2.circle(frame, (center_x, center_y), radius, self.col_bot, 4, cv2.LINE_AA)
+                cv2.circle(frame, (center_x, center_y), int(radius * 0.45), (9, 13, 22), -1)
+                cv2.circle(frame, (center_x, center_y), int(radius * 0.45), self.col_top, 2, cv2.LINE_AA)
+
                 for i in range(n):
-                    angle = (i / n) * 2 * math.pi
+                    angle = (i / n) * 2 * math.pi - math.pi / 2
+                    if 'radial' in spec_type: angle += t_sec * 0.6
                     val = self.bar_h[i] * react
                     bar_len = int(max(idle, min(max_h, val * max_h)))
                     r_outer = radius + bar_len
@@ -463,13 +477,10 @@ class VisualEngine:
                     y_in = int(center_y + radius * math.sin(angle))
                     x_out = int(center_x + r_outer * math.cos(angle))
                     y_out = int(center_y + r_outer * math.sin(angle))
-                    col = tuple(int(self.col_bot[c] + (self.col_top[c] - self.col_bot[c]) * min(1.0, val)) for c in range(3))
-                    cv2.line(frame, (x_in, y_in), (x_out, y_out), col, bar_w)
-                cv2.circle(frame, (center_x, center_y), radius, (15, 23, 42), -1)
-                cv2.circle(frame, (center_x, center_y), radius, self.col_bot, 4)
-                cv2.circle(frame, (center_x, center_y), int(radius * 0.4), (9, 13, 22), -1)
-                cv2.circle(frame, (center_x, center_y), int(radius * 0.4), self.col_top, 2)
+                    col = hsl_to_bgr(i * (360/n) + t_sec*60) if is_rainbow else tuple(int(self.col_bot[c] + (self.col_top[c] - self.col_bot[c]) * min(1.0, val)) for c in range(3))
+                    cv2.line(frame, (x_in, y_in), (x_out, y_out), col, max(2, bar_w), cv2.LINE_AA)
 
+            # C. WAVEFORM & OSCILLOSCOPE
             elif 'waveform' in spec_type or 'oscilloscope' in spec_type:
                 pts = []
                 for i in range(n):
@@ -481,90 +492,179 @@ class VisualEngine:
                 cv2.polylines(frame, [pts_np], False, self.col_bot, 8, cv2.LINE_AA)
                 cv2.polylines(frame, [pts_np], False, self.col_top, 3, cv2.LINE_AA)
 
+            # D. PODCAST / CENTER-SHORT
+            elif 'podcast' in spec_type or 'center' in spec_type:
+                for i in range(n):
+                    val = self.bar_h[i] * react
+                    height = int(max(idle, val * max_h * 0.7))
+                    x1 = s_x + (i * (bar_w + space))
+                    col = hsl_to_bgr(i * (360/n) + t_sec*60) if is_rainbow else self.col_bot
+                    cv2.line(frame, (x1 + bar_w//2, b_y - height), (x1 + bar_w//2, b_y + height), col, bar_w, cv2.LINE_AA)
+
+            # E. MIRROR BARS
+            elif 'mirror' in spec_type:
+                for i in range(n):
+                    val = self.bar_h[i] * react
+                    bar_len = int(max(idle, val * (max_h // 2)))
+                    x1 = s_x + (i * (bar_w + space))
+                    x2 = x1 + bar_w
+                    col = hsl_to_bgr(i * (360/n) + t_sec*60) if is_rainbow else self.col_bot
+                    cv2.rectangle(frame, (x1, b_y - bar_len), (x2, b_y + bar_len), col, -1)
+
+            # F. WATERFALL / CASCADE
+            elif 'waterfall' in spec_type:
+                for i in range(n):
+                    val = self.bar_h[i] * react
+                    height = int(max(idle, val * max_h * 1.2))
+                    x1 = s_x + (i * (bar_w + space))
+                    col = hsl_to_bgr(i * (360/n) + t_sec*60) if is_rainbow else self.col_bot
+                    cv2.line(frame, (x1 + bar_w//2, b_y - height), (x1 + bar_w//2, b_y), col, bar_w, cv2.LINE_AA)
+
+            # G. BORDER BARS
+            elif 'border' in spec_type:
+                b_count = min(n, 48)
+                b_w = w // b_count
+                for i in range(b_count):
+                    val = self.bar_h[i] * react
+                    height = int(max(idle, val * max_h * 0.5))
+                    col = hsl_to_bgr(i * (360/b_count) + t_sec*60) if is_rainbow else self.col_bot
+                    cv2.rectangle(frame, (i * b_w, h - height), ((i + 1) * b_w - 2, h), col, -1)
+
+            # H. NEON BARS / MODERN EQUALIZER BARS (DEFAULT)
             else:
-                mask = np.zeros((h, w), dtype=np.uint8)
                 for i in range(n):
                     val = self.bar_h[i] * react
                     height = int(max(idle, min(max_h, val * max_h)))
                     x1 = s_x + (i * (bar_w + space))
                     x2 = x1 + bar_w
-                    y1 = b_y - height
-                    if x2 > x1 and y1 < b_y and 0 <= x1 < w:
-                        cv2.rectangle(mask, (x1, max(0, y1)), (min(w, x2), min(h, b_y)), 255, -1)
+                    y_top = b_y - height
+                    col = hsl_to_bgr(i * (360/n) + t_sec*60) if is_rainbow else tuple(int(self.col_bot[c] + (self.col_top[c] - self.col_bot[c]) * min(1.0, val)) for c in range(3))
+                    
+                    cv2.rectangle(frame, (x1, y_top), (x2, b_y), col, -1)
+                    if 'neon' in spec_type:
+                        cv2.rectangle(frame, (x1-1, y_top-1), (x2+1, b_y), (255, 255, 255), 1, cv2.LINE_AA)
 
-                f_grad = np.zeros((h, w, 3), dtype=np.uint8)
-                y1 = max(0, b_y - max_h); y2 = min(h, b_y)
-                if y2 > y1: f_grad[y1:y2, :] = f_grad_base[:y2 - y1, :]
-
-                if 'neon' in spec_type:
-                    glow = cv2.GaussianBlur(f_grad, (17, 17), 0)
-                    frame = cv2.addWeighted(frame, 1.0, glow, 0.35, 0)
-
-                idx = (mask > 0)
-                frame[idx] = f_grad[idx]
-
-        # 3. Template Mockup & Synced Lyrics Overlay via Pillow
+        # 3. Template & Synced Lyrics Overlay via Pillow
         lrc_enable = cfg.get('lrc_enable', '1') not in ['0', 'false', False]
         active_lyric = self.get_active_lyric(t_sec) if lrc_enable else ""
         
         needs_pil = (tpl not in ['none', ''] or (lrc_enable and active_lyric))
         if needs_pil:
+            scale = w / 1280.0
             img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(img_pil, 'RGBA')
             title_text = cfg.get('title', 'KeiBot Studio Track')
+            bot_rgb = (self.col_bot[2], self.col_bot[1], self.col_bot[0])
+            top_rgb = (self.col_top[2], self.col_top[1], self.col_top[0])
 
+            # Dynamic scaled fonts
+            try:
+                f_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", int(22 * scale))
+                f_title_lg = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", int(32 * scale))
+                f_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", int(13 * scale))
+                lrc_sz = int(float(cfg.get('lrc_font_size', 24)))
+                f_lyric = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", int((lrc_sz if lrc_sz > 10 else 24) * scale))
+            except:
+                f_title = self.font_title; f_title_lg = self.font_title_lg; f_sub = self.font_sub; f_lyric = self.font_lyric
+
+            # A. CLASSIC VINYL DISC & CARD TEMPLATE
             if tpl == 'classic':
-                card_w, card_h = 560, 260
+                card_w, card_h = int(560 * scale), int(260 * scale)
                 card_x = (w - card_w) // 2
-                card_y = (h - card_h) // 2 - 40
-                draw.rounded_rectangle([card_x, card_y, card_x + card_w, card_y + card_h], radius=20, fill=(15, 23, 42, 190), outline=(255, 255, 255, 30), width=2)
+                card_y = (h - card_h) // 2 - int(40 * scale)
+                draw.rounded_rectangle([card_x, card_y, card_x + card_w, card_y + card_h], radius=int(20 * scale), fill=(15, 23, 42, 195), outline=(255, 255, 255, 30), width=max(1, int(2 * scale)))
                 
-                disc_x = card_x + 110; disc_y = card_y + card_h // 2; disc_r = 75
-                draw.ellipse([disc_x - disc_r, disc_y - disc_r, disc_x + disc_r, disc_y + disc_r], fill=(9, 13, 22, 255), outline=(30, 41, 59, 255), width=6)
-                draw.ellipse([disc_x - 32, disc_y - 32, disc_x + 32, disc_y + 32], fill=tuple(reversed(self.col_bot)), outline=(0,0,0,255), width=2)
-                draw.ellipse([disc_x - 10, disc_y - 10, disc_x + 10, disc_y + 10], fill=(0, 0, 0, 255))
+                disc_x = card_x + int(110 * scale)
+                disc_y = card_y + card_h // 2
+                disc_r = int(75 * scale)
+                draw.ellipse([disc_x - disc_r, disc_y - disc_r, disc_x + disc_r, disc_y + disc_r], fill=(9, 13, 22, 255), outline=(30, 41, 59, 255), width=max(2, int(6 * scale)))
+                draw.ellipse([disc_x - int(32 * scale), disc_y - int(32 * scale), disc_x + int(32 * scale), disc_y + int(32 * scale)], fill=bot_rgb + (255,), outline=(0,0,0,255), width=max(1, int(2 * scale)))
+                draw.ellipse([disc_x - int(10 * scale), disc_y - int(10 * scale), disc_x + int(10 * scale), disc_y + int(10 * scale)], fill=(0, 0, 0, 255))
                 
-                draw.text((card_x + 220, card_y + 70), title_text[:30], fill=(255, 255, 255, 255), font=self.font_title)
-                draw.text((card_x + 220, card_y + 105), "KeiBot Music Studio Player", fill=(148, 163, 184, 255), font=self.font_sub)
-                if active_lyric:
-                    draw.text((card_x + 220, card_y + 155), active_lyric, fill=tuple(reversed(self.col_bot)), font=self.font_lyric)
+                for gr in [int(60 * scale), int(48 * scale)]:
+                    draw.ellipse([disc_x - gr, disc_y - gr, disc_x + gr, disc_y + gr], outline=(20, 28, 45, 255), width=1)
 
+                draw.text((card_x + int(220 * scale), card_y + int(68 * scale)), title_text[:30], fill=(255, 255, 255, 255), font=f_title)
+                draw.text((card_x + int(220 * scale), card_y + int(102 * scale)), "KeiBot Music Studio Player", fill=(148, 163, 184, 255), font=f_sub)
+                
+                disp_lrc = active_lyric if active_lyric else "♪ Menghanyutkan rasa di dalam nada..."
+                draw.text((card_x + int(220 * scale), card_y + int(152 * scale)), disp_lrc[:45], fill=bot_rgb + (255,), font=f_lyric)
+
+            # B. SPOTIFY BAR TEMPLATE
             elif tpl == 'spotify':
-                card_w, card_h = min(780, int(w * 0.85)), 110
+                card_w, card_h = min(int(780 * scale), int(w * 0.85)), int(110 * scale)
                 card_x = (w - card_w) // 2
-                card_y = h - card_h - 50
-                draw.rounded_rectangle([card_x, card_y, card_x + card_w, card_y + card_h], radius=16, fill=(18, 18, 18, 225), outline=(255, 255, 255, 38), width=2)
-                draw.text((card_x + 30, card_y + 25), title_text[:40], fill=(255, 255, 255, 255), font=self.font_title)
-                draw.text((card_x + 30, card_y + 60), active_lyric if active_lyric else "Official Music Track", fill=tuple(reversed(self.col_bot)), font=self.font_sub)
+                card_y = h - card_h - int(50 * scale)
+                draw.rounded_rectangle([card_x, card_y, card_x + card_w, card_y + card_h], radius=int(16 * scale), fill=(18, 18, 18, 225), outline=(255, 255, 255, 38), width=max(1, int(2 * scale)))
+                
+                draw.rounded_rectangle([card_x + int(16 * scale), card_y + int(15 * scale), card_x + int(96 * scale), card_y + int(95 * scale)], radius=int(10 * scale), fill=bot_rgb + (255,))
+                draw.text((card_x + int(40 * scale), card_y + int(35 * scale)), "🎵", fill=(255, 255, 255, 255), font=f_title)
 
+                draw.text((card_x + int(115 * scale), card_y + int(24 * scale)), title_text[:35], fill=(255, 255, 255, 255), font=f_title)
+                draw.text((card_x + int(115 * scale), card_y + int(54 * scale)), active_lyric if active_lyric else "KeiBot Spotify Verified Artist", fill=bot_rgb + (255,), font=f_sub)
+                
+                bar_x = card_x + int(115 * scale)
+                bar_y = card_y + int(78 * scale)
+                bar_w = card_w - int(145 * scale)
+                draw.rounded_rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + int(6 * scale)], radius=int(3 * scale), fill=(51, 65, 85, 255))
+                pct = (t_sec % 180) / 180.0
+                draw.rounded_rectangle([bar_x, bar_y, bar_x + int(bar_w * pct), bar_y + int(6 * scale)], radius=int(3 * scale), fill=bot_rgb + (255,))
+
+            # C. RETRO CASSETTE TAPE
+            elif tpl == 'cassette':
+                cas_w, cas_h = int(460 * scale), int(250 * scale)
+                cas_x = (w - cas_w) // 2
+                cas_y = (h - cas_h) // 2 - int(20 * scale)
+                draw.rounded_rectangle([cas_x, cas_y, cas_x + cas_w, cas_y + cas_h], radius=int(16 * scale), fill=(30, 41, 59, 240), outline=bot_rgb + (255,), width=max(1, int(3 * scale)))
+                draw.rounded_rectangle([cas_x + int(30 * scale), cas_y + int(25 * scale), cas_x + cas_w - int(30 * scale), cas_y + int(115 * scale)], radius=int(8 * scale), fill=(15, 23, 42, 255))
+                
+                draw.text((w // 2 - int(120 * scale), cas_y + int(45 * scale)), title_text[:25], fill=(248, 250, 252, 255), font=f_title)
+                draw.text((w // 2 - int(110 * scale), cas_y + int(80 * scale)), "◄◄ STEREO HI-FI 60 MIN ►►", fill=bot_rgb + (255,), font=f_sub)
+                
+                for sp_x in [cas_x + int(120 * scale), cas_x + cas_w - int(120 * scale)]:
+                    sp_y = cas_y + int(175 * scale)
+                    draw.ellipse([sp_x - int(30 * scale), sp_y - int(30 * scale), sp_x + int(30 * scale), sp_y + int(30 * scale)], fill=(255, 255, 255, 255), outline=(15, 23, 42, 255), width=max(1, int(4 * scale)))
+                    draw.ellipse([sp_x - int(10 * scale), sp_y - int(10 * scale), sp_x + int(10 * scale), sp_y + int(10 * scale)], fill=(15, 23, 42, 255))
+
+            # D. PODCAST BOX
             elif tpl == 'podcast':
-                box_w, box_h = 540, 180
+                box_w, box_h = int(540 * scale), int(180 * scale)
                 box_x = (w - box_w) // 2
-                box_y = (h - box_h) // 2 - 30
-                draw.rounded_rectangle([box_x, box_y, box_x + box_w, box_y + box_h], radius=16, fill=(15, 23, 42, 215), outline=tuple(reversed(self.col_bot)) + (100,), width=2)
-                draw.text((box_x + 24, box_y + 30), "🎙️ OFFICIAL PODCAST / EPISODE", fill=tuple(reversed(self.col_bot)), font=self.font_sub)
-                draw.text((box_x + 24, box_y + 65), title_text[:35], fill=(255, 255, 255, 255), font=self.font_title)
+                box_y = (h - box_h) // 2 - int(30 * scale)
+                draw.rounded_rectangle([box_x, box_y, box_x + box_w, box_y + box_h], radius=int(16 * scale), fill=(15, 23, 42, 220), outline=bot_rgb + (180,), width=max(1, int(2 * scale)))
+                draw.text((box_x + int(24 * scale), box_y + int(28 * scale)), "🎙️ OFFICIAL PODCAST / EPISODE", fill=bot_rgb + (255,), font=f_sub)
+                draw.text((box_x + int(24 * scale), box_y + int(65 * scale)), title_text[:35], fill=(255, 255, 255, 255), font=f_title)
 
+            # E. MINIMAL / NEON / REELS
+            elif tpl in ['minimal', 'neon', 'reels']:
+                draw.text((w // 2 - int(150 * scale), h // 2 - int(60 * scale)), title_text[:30], fill=(255, 255, 255, 255), font=f_title_lg)
+                draw.text((w // 2 - int(100 * scale), h // 2 - int(10 * scale)), "• • • NOW PLAYING • • •", fill=bot_rgb + (255,), font=f_sub)
+
+            # Standalone Synced Lyrics Rendering (if not inside classic card)
             if active_lyric and tpl != 'classic':
                 lrc_px = safe_num(cfg.get('lrc_pos_x'), 50) / 100.0
                 lrc_py = safe_num(cfg.get('lrc_pos_y'), 78) / 100.0
-                lrc_x = int(w * lrc_px); lrc_y = int(h * lrc_py)
+                lrc_x = int(w * lrc_px)
+                lrc_y = int(h * lrc_py)
                 
-                bbox = draw.textbbox((0, 0), active_lyric, font=self.font_lyric)
+                bbox = draw.textbbox((0, 0), active_lyric, font=f_lyric)
                 tw = bbox[2] - bbox[0]; th = bbox[3] - bbox[1]
                 tx = lrc_x - tw // 2; ty = lrc_y - th // 2
-                pad_x, pad_y = 16, 8
-                draw.rounded_rectangle([tx - pad_x, ty - pad_y, tx + tw + pad_x, ty + th + pad_y], radius=8, fill=(15, 23, 42, 190), outline=tuple(reversed(self.col_bot)) + (150,), width=1)
-                draw.text((tx, ty), active_lyric, fill=(255, 255, 255, 255), font=self.font_lyric)
+                pad_x, pad_y = int(18 * scale), int(10 * scale)
+                draw.rounded_rectangle([tx - pad_x, ty - pad_y, tx + tw + pad_x, ty + th + pad_y], radius=int(10 * scale), fill=(15, 23, 42, 210), outline=bot_rgb + (180,), width=max(1, int(2 * scale)))
+                draw.text((tx, ty), active_lyric, fill=(255, 255, 255, 255), font=f_lyric)
 
             frame = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
 
         return frame
 
-def hex_to_rgb(h): return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
-
 def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
-    w, h = 1280, 720; fps = 30; total_f = int(duration * fps)
+    res = str(cfg.get('video_res', '1080p')).lower()
+    if '720' in res:
+        w, h = 1280, 720
+    else:
+        w, h = 1920, 1080
+    fps = 30; total_f = int(duration * fps)
     vis = VisualEngine(cfg)
     bg = BackgroundManager(bg_paths, w, h)
     audio = AudioBrain(); audio.load(audio_path)

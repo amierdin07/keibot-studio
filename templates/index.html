@@ -881,6 +881,15 @@
                                             <select name="playlist" id="vod_playlist_select" style="background:#1e293b; border:1px solid #334155; color:#fff; font-size:12px; border-radius:8px; padding:8px; width:100%; margin:0;"><option value="">-- Pilih --</option></select>
                                         </div>
                                         <div>
+                                            <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">RESOLUSI VIDEO</label>
+                                            <select name="video_res" id="vod_video_res" style="background:#1e293b; border:1px solid #10b981; color:#10b981; font-weight:800; font-size:12px; border-radius:8px; padding:8px; width:100%; margin:0;">
+                                                <option value="1080p" selected>🌟 1080p Full HD (Jernih)</option>
+                                                <option value="720p">⚡ 720p HD (Render Cepat)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div>
                                             <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">PRIVASI</label>
                                             <select name="privacy" style="background:#1e293b; border:1px solid #334155; color:#10b981; font-weight:700; font-size:12px; border-radius:8px; padding:8px; width:100%; margin:0;">
                                                 <option value="public">🌍 Public</option>
@@ -888,14 +897,14 @@
                                                 <option value="private">🔒 Private</option>
                                             </select>
                                         </div>
+                                        <div>
+                                            <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">JADWAL TAYANG</label>
+                                            <input type="datetime-local" name="schedule" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 10px; border-radius:8px; width:100%; font-size:12px; margin:0;">
+                                        </div>
                                     </div>
                                     <div>
                                         <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">TAGS (KOMA)</label>
                                         <input type="text" name="tags" placeholder="Lofi, Relax, Chill" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 10px; border-radius:8px; width:100%; font-size:12px; margin:0;">
-                                    </div>
-                                    <div>
-                                        <label style="font-size:11px; font-weight:700; color:#94a3b8; display:block; margin-bottom:4px;">JADWAL TAYANG (KOSONG = LANGSUNG)</label>
-                                        <input type="datetime-local" name="schedule" style="background:#1e293b; border:1px solid #334155; color:#fff; padding:8px 10px; border-radius:8px; width:100%; font-size:12px; margin:0;">
                                     </div>
                                 </div>
 
@@ -1112,10 +1121,11 @@
             
             // Sync Studio Visualizer & FX & Template & Lyrics parameters
             if(isVod) {
-                formData.set('studio_template', (typeof studioTemplate !== 'undefined' ? studioTemplate : 'none'));
+                const tplEnabled = document.getElementById('tpl_enable') ? document.getElementById('tpl_enable').checked : true;
+                formData.set('studio_template', tplEnabled ? (typeof studioTemplate !== 'undefined' ? studioTemplate : 'classic') : 'none');
                 formData.set('spectrum_type', document.getElementById('vod_spectrum_type')?.value || 'modern-bars');
-                formData.set('color_bot', document.getElementById('vod_color_bot')?.value || '#10b981');
-                formData.set('color_top', document.getElementById('vod_color_top')?.value || '#0ea5e9');
+                formData.set('color_bot', window.spectrumColorMode === 'rainbow' ? 'rainbow' : (document.getElementById('vod_color_bot')?.value || '#10b981'));
+                formData.set('color_top', window.spectrumColorMode === 'rainbow' ? 'rainbow' : (document.getElementById('vod_color_top')?.value || '#0ea5e9'));
                 formData.set('color_part', document.getElementById('vod_color_part')?.value || '#ffffff');
                 formData.set('pos_x', document.getElementById('vod_pos_x')?.value || '50');
                 formData.set('pos_y', document.getElementById('vod_pos_y')?.value || '85');
@@ -1146,10 +1156,14 @@
                 formData.set('lrc_pos_y', document.getElementById('lrc_pos_y')?.value || '78');
                 formData.set('lrc_font_size', document.getElementById('lrc_font_size')?.value || '24');
                 formData.set('lrc_color_active', document.getElementById('lrc_color_active')?.value || '#10b981');
+                
+                // Video Resolution
+                formData.set('video_res', document.getElementById('vod_video_res')?.value || '1080p');
             }
 
             let idAntrean = "Q-" + Math.floor(Math.random() * 9999);
-            let judul = formData.get('title') || 'Video Tanpa Judul';
+            let judul = formData.get('title') || document.getElementById('vod_final_title')?.value || document.getElementById('studio_project_title')?.value || 'Video Tanpa Judul';
+            formData.set('title', judul);
             let jadwal = isVod ? (formData.get('schedule') ? formData.get('schedule').replace('T', ' ') : '🚀 Rilis Instan') : `${formData.get('schedule_start').replace('T', ' ')} s/d ${formData.get('schedule_end').replace('T', ' ')}`;
 
             browserQueue.push({ id: idAntrean, api: api, dataBahan: formData, judul: judul, jadwal: jadwal, isVod: isVod, status: '⏳ Mengantre Server', progress: 0 });
@@ -2008,8 +2022,9 @@
         }
 
         function studioAnimLoop() {
-            if(!studioIsPlaying) return;
-            updateStudioTimeDisplay();
+            if(studioIsPlaying) {
+                updateStudioTimeDisplay();
+            }
             redrawStudioCanvas();
             studioAnimId = requestAnimationFrame(studioAnimLoop);
         }
@@ -2075,10 +2090,12 @@
                 }
                 bassEnergy = (freqs[0] + freqs[1] + freqs[2] + freqs[3]) / (4 * 255);
             } else {
+                // Lively organic demo wave when paused
                 for(let i=0; i<64; i++) {
-                    freqs[i] = Math.sin((i + Date.now() / 200) * 0.3) * 20 + 25;
+                    const wave = Math.sin((i * 0.2) + (Date.now() / 250)) * 0.4 + Math.cos(i * 0.1) * 0.3 + 0.5;
+                    freqs[i] = Math.max(30, Math.min(255, wave * 220));
                 }
-                bassEnergy = 0.2;
+                bassEnergy = 0.5 + Math.sin(Date.now() / 300) * 0.2;
             }
 
             const botColor = document.getElementById('vod_color_bot')?.value || '#10b981';
@@ -2699,32 +2716,121 @@
                     ctx.arc(bx + barW/2, by, sz, 0, Math.PI * 2);
                     ctx.fill();
                 }
-            } else if(type === 'radial') {
-                const cx = x;
-                const cy = y - 40;
-                const baseR = 40;
-                ctx.save();
-                ctx.translate(cx, cy);
-                ctx.rotate(time * 0.5);
+            } else if(type === 'dna-twist') {
                 for(let i=0; i<count; i++) {
-                    const angle = (i / count) * Math.PI * 2;
                     const val = (freqs[i % freqs.length] / 255);
-                    const len = baseR + val * (maxH * 0.6);
-                    ctx.strokeStyle = botColor;
-                    ctx.lineWidth = 3;
+                    const xi = startX + i * (barW + gap);
+                    const amplitude = Math.max(idleH, val * maxH * 0.7);
+                    const phase = i * 0.25 + time * 3.5;
+                    const y1 = y + Math.sin(phase) * amplitude;
+                    const y2 = y - Math.sin(phase) * amplitude;
+                    const c1 = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 55%)` : botColor;
+                    const c2 = isRainbow ? `hsl(${(i * (360 / count) + time * 60 + 90) % 360}, 100%, 65%)` : topColor;
+                    
+                    // Connecting rung
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                    ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.moveTo(Math.cos(angle) * baseR, Math.sin(angle) * baseR);
-                    ctx.lineTo(Math.cos(angle) * len, Math.sin(angle) * len);
+                    ctx.moveTo(xi, y1);
+                    ctx.lineTo(xi, y2);
                     ctx.stroke();
+                    
+                    // Glowing Nodes
+                    ctx.fillStyle = c1;
+                    ctx.beginPath();
+                    ctx.arc(xi, y1, Math.max(3, barW / 2), 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = c2;
+                    ctx.beginPath();
+                    ctx.arc(xi, y2, Math.max(3, barW / 2), 0, Math.PI * 2);
+                    ctx.fill();
                 }
-                ctx.restore();
-            } else {
-                // Fallback default
+            } else if(type === 'neon-tubes') {
+                ctx.save();
+                ctx.shadowColor = botColor;
+                ctx.shadowBlur = 20;
                 for(let i=0; i<count; i++) {
                     const val = (freqs[i % freqs.length] / 255);
                     const h = Math.max(idleH, val * maxH);
                     const bx = startX + i * (barW + gap);
-                    ctx.fillStyle = botColor;
+                    ctx.fillStyle = isRainbow ? `hsl(${(i * (360 / count) + time * 60) % 360}, 100%, 60%)` : botColor;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, y - h, barW, h, barW / 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            } else if(type === 'hexagon') {
+                const cx = x;
+                const cy = y - 40;
+                ctx.save();
+                ctx.translate(cx, cy);
+                for(let ring=1; ring<=4; ring++) {
+                    const r = ring * 35 + (bassEnergy * 25);
+                    ctx.beginPath();
+                    for(let i=0; i<6; i++) {
+                        const a = (i / 6) * Math.PI * 2 + (time * 0.4 * (ring % 2 === 0 ? 1 : -1));
+                        const px = Math.cos(a) * r;
+                        const py = Math.sin(a) * r;
+                        if(i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.strokeStyle = ring % 2 === 0 ? topColor : botColor;
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+                }
+                ctx.restore();
+            } else if(type === 'orb-pulse') {
+                const cx = x;
+                const cy = y - 40;
+                const r = 50 + (bassEnergy * 45);
+                ctx.save();
+                const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, r * 1.5);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.4, botColor);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = topColor;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            } else if(type === 'waterfall') {
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH * 1.2);
+                    const bx = startX + i * (barW + gap);
+                    const grad = ctx.createLinearGradient(0, y - h, 0, y);
+                    grad.addColorStop(0, 'transparent');
+                    grad.addColorStop(0.5, topColor);
+                    grad.addColorStop(1, botColor);
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(bx, y - h, barW, h);
+                }
+            } else if(type === 'border-bars') {
+                const bCount = Math.min(count, 48);
+                const bW = W / bCount;
+                for(let i=0; i<bCount; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH * 0.5);
+                    ctx.fillStyle = isRainbow ? `hsl(${(i * (360 / bCount) + time * 60) % 360}, 100%, 60%)` : botColor;
+                    ctx.fillRect(i * bW, H - h, bW - 2, h);
+                }
+            } else {
+                // Modern Bars (Default)
+                for(let i=0; i<count; i++) {
+                    const val = (freqs[i % freqs.length] / 255);
+                    const h = Math.max(idleH, val * maxH);
+                    const bx = startX + i * (barW + gap);
+                    const grad = ctx.createLinearGradient(0, y, 0, y - h);
+                    grad.addColorStop(0, botColor);
+                    grad.addColorStop(1, topColor);
+                    ctx.fillStyle = grad;
                     ctx.fillRect(bx, y - h, barW, h);
                 }
             }
@@ -3323,7 +3429,7 @@
             checkApiStatus();
             setInterval(fetchDataFromServer, 2000);
             refreshPresetDropdowns();
-            setTimeout(redrawStudioCanvas, 300);
+            studioAnimLoop();
         }
     </script>
     
