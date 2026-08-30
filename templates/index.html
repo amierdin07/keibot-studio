@@ -1109,6 +1109,45 @@
             e.preventDefault(); 
             let form = e.target; let formData = new FormData(form);
             let isVod = api.includes('upload_vod');
+            
+            // Sync Studio Visualizer & FX & Template & Lyrics parameters
+            if(isVod) {
+                formData.set('studio_template', (typeof studioTemplate !== 'undefined' ? studioTemplate : 'none'));
+                formData.set('spectrum_type', document.getElementById('vod_spectrum_type')?.value || 'modern-bars');
+                formData.set('color_bot', document.getElementById('vod_color_bot')?.value || '#10b981');
+                formData.set('color_top', document.getElementById('vod_color_top')?.value || '#0ea5e9');
+                formData.set('color_part', document.getElementById('vod_color_part')?.value || '#ffffff');
+                formData.set('pos_x', document.getElementById('vod_pos_x')?.value || '50');
+                formData.set('pos_y', document.getElementById('vod_pos_y')?.value || '85');
+                formData.set('width_pct', document.getElementById('vod_width_pct')?.value || '60');
+                formData.set('max_height', document.getElementById('vod_max_height')?.value || '40');
+                formData.set('idle_height', document.getElementById('vod_idle_height')?.value || '5');
+                formData.set('bar_count', document.getElementById('vod_bar_count')?.value || '64');
+                formData.set('reactivity', document.getElementById('vod_reactivity')?.value || '0.66');
+                formData.set('gravity', document.getElementById('vod_gravity')?.value || '0.08');
+                formData.set('spacing', document.getElementById('vod_spacing')?.value || '3');
+                formData.set('vod_vis_enable', document.getElementById('vod_vis_enable')?.checked ? '1' : '0');
+                
+                // Visual Effects
+                formData.set('fx_enable', document.getElementById('fx_enable')?.checked ? '1' : '0');
+                formData.set('fx_preset', document.getElementById('fx_preset_select')?.value || 'none');
+                formData.set('fx_count', document.getElementById('fx_count')?.value || '60');
+                formData.set('fx_speed', document.getElementById('fx_speed')?.value || '1.0');
+                formData.set('fx_size', document.getElementById('fx_size')?.value || '1.0');
+                formData.set('fx_wind', document.getElementById('fx_wind')?.value || '0.2');
+                formData.set('fx_custom_color', document.getElementById('fx_custom_color')?.value || '#ffb7c5');
+                
+                // Synced Lyrics
+                formData.set('lrc_enable', document.getElementById('lrc_enable')?.checked ? '1' : '0');
+                formData.set('lrc_content', document.getElementById('studio_lrc_editor')?.value || '');
+                formData.set('lrc_style', document.getElementById('lrc_style')?.value || 'karaoke');
+                formData.set('lrc_font', document.getElementById('lrc_font')?.value || 'Segoe UI');
+                formData.set('lrc_pos_x', document.getElementById('lrc_pos_x')?.value || '50');
+                formData.set('lrc_pos_y', document.getElementById('lrc_pos_y')?.value || '78');
+                formData.set('lrc_font_size', document.getElementById('lrc_font_size')?.value || '24');
+                formData.set('lrc_color_active', document.getElementById('lrc_color_active')?.value || '#10b981');
+            }
+
             let idAntrean = "Q-" + Math.floor(Math.random() * 9999);
             let judul = formData.get('title') || 'Video Tanpa Judul';
             let jadwal = isVod ? (formData.get('schedule') ? formData.get('schedule').replace('T', ' ') : '🚀 Rilis Instan') : `${formData.get('schedule_start').replace('T', ' ')} s/d ${formData.get('schedule_end').replace('T', ' ')}`;
@@ -2201,7 +2240,11 @@
                 // Visualizer above card
                 if(isVisEnabled) {
                     const specType = document.getElementById('vod_spectrum_type')?.value || 'waveform-glow';
-                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, cardY - 40, cardW, H*0.25, 48, 3, 4, bassEnergy, timeSec, W, H);
+                    const posX = (parseFloat(document.getElementById('vod_pos_x')?.value || 50) / 100) * W;
+                    const posY = (parseFloat(document.getElementById('vod_pos_y')?.value || 85) / 100) * H;
+                    const specW = (parseFloat(document.getElementById('vod_width_pct')?.value || 60) / 100) * W;
+                    const limitH = (parseFloat(document.getElementById('vod_max_height')?.value || 40) / 100) * H;
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, posX, posY, specW, limitH, 48, 3, 4, bassEnergy, timeSec, W, H);
                 }
 
             } else if(studioTemplate === 'cassette') {
@@ -2264,13 +2307,19 @@
 
                 if(isVisEnabled) {
                     const specType = document.getElementById('vod_spectrum_type')?.value || 'modern-bars';
-                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, H*0.82, W*0.6, H*0.2, 40, 3, 3, bassEnergy, timeSec, W, H);
+                    const posX = (parseFloat(document.getElementById('vod_pos_x')?.value || 50) / 100) * W;
+                    const posY = (parseFloat(document.getElementById('vod_pos_y')?.value || 85) / 100) * H;
+                    const specW = (parseFloat(document.getElementById('vod_width_pct')?.value || 60) / 100) * W;
+                    const limitH = (parseFloat(document.getElementById('vod_max_height')?.value || 40) / 100) * H;
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, posX, posY, specW, limitH, 40, 3, 3, bassEnergy, timeSec, W, H);
                 }
 
             } else if(studioTemplate === 'trap') {
                 // Trap Nation Pulsing Center Aura
-                const centerX = W / 2;
-                const centerY = H / 2 - 20;
+                const posX = (parseFloat(document.getElementById('vod_pos_x')?.value || 50) / 100) * W;
+                const posY = (parseFloat(document.getElementById('vod_pos_y')?.value || 50) / 100) * H;
+                const centerX = posX;
+                const centerY = posY;
                 const baseR = 100 + bassEnergy * 50;
 
                 // Glowing Aura Circles
@@ -2301,7 +2350,8 @@
 
                 if(isVisEnabled) {
                     const specType = document.getElementById('vod_spectrum_type')?.value || 'trap-nation';
-                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, centerX, centerY, baseR * 2, H*0.35, 48, 4, 6, bassEnergy, timeSec, W, H);
+                    const limitH = (parseFloat(document.getElementById('vod_max_height')?.value || 40) / 100) * H;
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, centerX, centerY, baseR * 2, limitH, 48, 4, 6, bassEnergy, timeSec, W, H);
                 }
 
             } else if(studioTemplate === 'podcast') {
@@ -2329,7 +2379,11 @@
 
                 if(isVisEnabled) {
                     const specType = document.getElementById('vod_spectrum_type')?.value || 'podcast';
-                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, W/2, boxY + 135, boxW - 48, 50, 36, 4, 4, bassEnergy, timeSec, W, H);
+                    const posX = (parseFloat(document.getElementById('vod_pos_x')?.value || 50) / 100) * W;
+                    const posY = (parseFloat(document.getElementById('vod_pos_y')?.value || 85) / 100) * H;
+                    const specW = (parseFloat(document.getElementById('vod_width_pct')?.value || 60) / 100) * W;
+                    const limitH = (parseFloat(document.getElementById('vod_max_height')?.value || 40) / 100) * H;
+                    renderSpectrumEngine(ctx, specType, freqs, botColor, topColor, posX, posY, specW, limitH, 36, 4, 4, bassEnergy, timeSec, W, H);
                 }
 
             } else if(studioTemplate === 'neon') {

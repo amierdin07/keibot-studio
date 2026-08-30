@@ -15,6 +15,7 @@ import json
 import datetime as dt
 from datetime import datetime, timedelta
 import requests
+from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 
 # ==========================================
@@ -277,58 +278,277 @@ class BackgroundManager:
     def close(self):
         if self.reader: self.reader.close()
 
+def hex_to_bgr(h, default=(129, 185, 16)):
+    if not h or not isinstance(h, str): return default
+    h = h.strip().lstrip('#')
+    if len(h) != 6: return default
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return (b, g, r)
+    except:
+        return default
+
 class VisualEngine:
-    def __init__(self, c_bot, c_top, c_part):
-        self.col_bot = (c_bot[2], c_bot[1], c_bot[0]); self.col_top = (c_top[2], c_top[1], c_top[0]); self.col_part = (c_part[2], c_part[1], c_part[0]); self.bar_h = None
-        self.grad = np.zeros((1000, 1, 3), dtype=np.uint8)
-        for c in range(3): self.grad[:, 0, c] = np.linspace(self.col_top[c], self.col_bot[c], 1000)
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.col_bot = hex_to_bgr(cfg.get('color_bot'), (129, 185, 16))
+        self.col_top = hex_to_bgr(cfg.get('color_top'), (233, 165, 14))
+        self.col_part = hex_to_bgr(cfg.get('color_part'), (255, 255, 255))
+        self.bar_h = None
         self.particles = []
-    def process(self, frame, vol, bars, cfg):
-        h, w = frame.shape[:2]; n = len(bars)
+        self.fx_particles = []
+        
+        # Load fonts
+        try:
+            self.font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
+            self.font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 13)
+            lrc_sz = int(float(cfg.get('lrc_font_size', 24)))
+            self.font_lyric = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", lrc_sz if lrc_sz > 10 else 24)
+        except:
+            self.font_title = ImageFont.load_default()
+            self.font_sub = ImageFont.load_default()
+            self.font_lyric = ImageFont.load_default()
+            
+        # Parse Synced Lyrics (.LRC)
+        self.lyrics = []
+        lrc_raw = cfg.get('lrc_content', '')
+        if lrc_raw:
+            for line in lrc_raw.split('\n'):
+                line = line.strip()
+                if line.startswith('[') and ']' in line:
+                    try:
+                        time_part = line[1:line.index(']')]
+                        text_part = line[line.index(']')+1:].strip()
+                        parts = time_part.split(':')
+                        if len(parts) == 2:
+                            t_sec = float(parts[0]) * 60 + float(parts[1])
+                            self.lyrics.append((t_sec, text_part))
+                    except: pass
+            self.lyrics.sort(key=lambda x: x[0])
+
+    def get_active_lyric(self, t_sec):
+        active = ""
+        for t, txt in self.lyrics:
+            if t_sec >= t: active = txt
+            else: break
+        return active
+
+    def process(self, frame, vol, bars, cfg, t_sec=0.0):
+        h, w = frame.shape[:2]
+        n = len(bars)
         if self.bar_h is None or len(self.bar_h) != n: self.bar_h = np.zeros(n)
+
         def safe_num(val, default):
             try: return float(val) if val != "" and val is not None else default
             except: return default
+
         react = safe_num(cfg.get('reactivity'), 0.66)
         grav = safe_num(cfg.get('gravity'), 0.08)
         idle = int(safe_num(cfg.get('idle_height'), 5))
         space = int(safe_num(cfg.get('spacing'), 3))
-        px = safe_num(cfg.get('pos_x'), 50)/100
-        py = safe_num(cfg.get('pos_y'), 85)/100
-        wp = safe_num(cfg.get('width_pct'), 60)/100
-        max_h = h * (safe_num(cfg.get('max_height'), 40)/100)
-        p_amt = int(safe_num(cfg.get('part_amount'), 3))
-        p_spd = safe_num(cfg.get('part_speed'), 1.0)
+        px = safe_num(cfg.get('pos_x'), 50) / 100.0
+        py = safe_num(cfg.get('pos_y'), 85) / 100.0
+        wp = safe_num(cfg.get('width_pct'), 60) / 100.0
+        max_h = max(10, int(h * (safe_num(cfg.get('max_height'), 40) / 100.0)))
+        spec_type = cfg.get('spectrum_type', 'modern-bars')
+        tpl = cfg.get('studio_template', 'none')
+
+        # Bar smoothing
         for i in range(n):
             if bars[i] > self.bar_h[i]: self.bar_h[i] = self.bar_h[i]*0.2 + bars[i]*0.8
             else: self.bar_h[i] = max(0, self.bar_h[i] - grav)
-        tot_w = w * wp; bar_w = int(max(1, (tot_w - (space * (n-1))) / n)); s_x = int((w * px) - (tot_w / 2)); b_y = int(h * py); mask = np.zeros((h, w), dtype=np.uint8)
-        for i in range(n):
-            val = self.bar_h[i] * react; height = int(max(idle, min(max_h, val * max_h))); x1 = s_x + (i * (bar_w + space)); x2 = x1 + bar_w; y1 = b_y - height
-            if x2 > x1 and y1 < b_y: cv2.rectangle(mask, (x1, y1), (x2, b_y), 255, -1)
-        if int(max_h) > 0:
-            res = cv2.resize(self.grad, (w, int(max_h))); f_grad = np.zeros((h, w, 3), dtype=np.uint8); y1 = max(0, b_y - int(max_h)); y2 = min(h, b_y); f_grad[y1:y2, :] = res[:y2-y1, :]
-            frame = cv2.add(frame, cv2.bitwise_and(f_grad, f_grad, mask=mask))
-        if p_amt > 0:
-            while len(self.particles) < p_amt: self.particles.append([np.random.randint(0,w), np.random.randint(0,h), np.random.uniform(0.5,2.0), np.random.randint(1,4)])
-            for p in self.particles:
-                p[1] -= p[2] * p_spd * (1.0 + (vol * 0.1)); 
-                if p[1] < 0: p[1] = h; p[0] = np.random.randint(0, w)
-                cv2.circle(frame, (int(p[0]), int(p[1])), p[3], self.col_part, -1)
+
+        # 1. Atmospheric Visual Particles (Sakura, Snow, Rain, Bokeh, Stars)
+        fx_enable = cfg.get('fx_enable') in ['1', 'true', True, 1]
+        fx_preset = cfg.get('fx_preset', 'none')
+        if fx_enable and fx_preset not in ['none', '']:
+            fx_count = int(safe_num(cfg.get('fx_count'), 60))
+            fx_speed = safe_num(cfg.get('fx_speed'), 1.0)
+            fx_wind = safe_num(cfg.get('fx_wind'), 0.2)
+            fx_col = hex_to_bgr(cfg.get('fx_custom_color'), (197, 183, 255))
+            
+            while len(self.fx_particles) < fx_count:
+                self.fx_particles.append([
+                    np.random.randint(0, w), np.random.randint(0, h),
+                    np.random.uniform(1.0, 3.5),
+                    np.random.uniform(2.0, 6.0),
+                    np.random.uniform(0, math.pi*2)
+                ])
+            
+            for p in self.fx_particles:
+                p[0] += (fx_wind * 2.0 + np.sin(p[4])) * fx_speed
+                p[1] += p[2] * fx_speed * (1.0 + vol * 0.1)
+                p[4] += 0.05
+                if p[1] > h: p[1] = 0; p[0] = np.random.randint(0, w)
+                if p[0] < 0: p[0] = w
+                if p[0] > w: p[0] = 0
+                
+                if fx_preset in ['sakura', 'leaves']:
+                    pts = np.array([
+                        [int(p[0]), int(p[1])],
+                        [int(p[0] + p[3]*1.5), int(p[1] + p[3]*2)],
+                        [int(p[0]), int(p[1] + p[3]*3)],
+                        [int(p[0] - p[3]*1.5), int(p[1] + p[3]*2)]
+                    ], np.int32)
+                    cv2.fillConvexPoly(frame, pts, fx_col)
+                elif fx_preset == 'rain':
+                    cv2.line(frame, (int(p[0]), int(p[1])), (int(p[0] + fx_wind*4), int(p[1] + p[3]*3)), fx_col, 1)
+                else:
+                    cv2.circle(frame, (int(p[0]), int(p[1])), int(p[3]), fx_col, -1)
+
+        # 2. Spectrum Visualizer
+        vis_enable = cfg.get('vod_vis_enable', '1') not in ['0', 'false', False]
+        if vis_enable:
+            tot_w = int(w * wp)
+            bar_w = max(2, int((tot_w - (space * (n - 1))) / n))
+            s_x = int((w * px) - (tot_w / 2.0))
+            b_y = int(h * py)
+
+            grad = np.zeros((max_h, 1, 3), dtype=np.uint8)
+            for c in range(3):
+                grad[:, 0, c] = np.linspace(self.col_top[c], self.col_bot[c], max_h)
+            f_grad_base = cv2.resize(grad, (w, max_h))
+
+            if 'mirror' in spec_type:
+                mask = np.zeros((h, w), dtype=np.uint8)
+                for i in range(n):
+                    val = self.bar_h[i] * react
+                    bar_len = int(max(idle, min(max_h // 2, val * (max_h // 2))))
+                    x1 = s_x + (i * (bar_w + space))
+                    x2 = x1 + bar_w
+                    y1 = b_y - bar_len
+                    y2 = b_y + bar_len
+                    if x2 > x1 and y2 > y1 and 0 <= x1 < w and 0 <= y1 < h:
+                        cv2.rectangle(mask, (x1, max(0, y1)), (min(w, x2), min(h, y2)), 255, -1)
+                f_grad = np.zeros((h, w, 3), dtype=np.uint8)
+                gy1 = max(0, b_y - max_h // 2); gy2 = min(h, b_y + max_h // 2)
+                f_grad[gy1:gy2, :] = cv2.resize(grad, (w, gy2 - gy1))
+                idx = (mask > 0)
+                frame[idx] = f_grad[idx]
+
+            elif 'trap-nation' in spec_type or 'circular' in spec_type:
+                center_x, center_y = int(w * px), int(h * py)
+                radius = int(min(w, h) * 0.15 * (1.0 + vol * 0.12))
+                for i in range(n):
+                    angle = (i / n) * 2 * math.pi
+                    val = self.bar_h[i] * react
+                    bar_len = int(max(idle, min(max_h, val * max_h)))
+                    r_outer = radius + bar_len
+                    x_in = int(center_x + radius * math.cos(angle))
+                    y_in = int(center_y + radius * math.sin(angle))
+                    x_out = int(center_x + r_outer * math.cos(angle))
+                    y_out = int(center_y + r_outer * math.sin(angle))
+                    col = tuple(int(self.col_bot[c] + (self.col_top[c] - self.col_bot[c]) * min(1.0, val)) for c in range(3))
+                    cv2.line(frame, (x_in, y_in), (x_out, y_out), col, bar_w)
+                cv2.circle(frame, (center_x, center_y), radius, (15, 23, 42), -1)
+                cv2.circle(frame, (center_x, center_y), radius, self.col_bot, 4)
+                cv2.circle(frame, (center_x, center_y), int(radius * 0.4), (9, 13, 22), -1)
+                cv2.circle(frame, (center_x, center_y), int(radius * 0.4), self.col_top, 2)
+
+            elif 'waveform' in spec_type or 'oscilloscope' in spec_type:
+                pts = []
+                for i in range(n):
+                    x = s_x + int(i * (tot_w / n))
+                    val = (self.bar_h[i] * react) * max_h
+                    y = int(b_y - val * math.sin(i * 0.2 + t_sec * 4.0))
+                    pts.append([x, max(0, min(h-1, y))])
+                pts_np = np.array(pts, np.int32).reshape((-1, 1, 2))
+                cv2.polylines(frame, [pts_np], False, self.col_bot, 8, cv2.LINE_AA)
+                cv2.polylines(frame, [pts_np], False, self.col_top, 3, cv2.LINE_AA)
+
+            else:
+                mask = np.zeros((h, w), dtype=np.uint8)
+                for i in range(n):
+                    val = self.bar_h[i] * react
+                    height = int(max(idle, min(max_h, val * max_h)))
+                    x1 = s_x + (i * (bar_w + space))
+                    x2 = x1 + bar_w
+                    y1 = b_y - height
+                    if x2 > x1 and y1 < b_y and 0 <= x1 < w:
+                        cv2.rectangle(mask, (x1, max(0, y1)), (min(w, x2), min(h, b_y)), 255, -1)
+
+                f_grad = np.zeros((h, w, 3), dtype=np.uint8)
+                y1 = max(0, b_y - max_h); y2 = min(h, b_y)
+                if y2 > y1: f_grad[y1:y2, :] = f_grad_base[:y2 - y1, :]
+
+                if 'neon' in spec_type:
+                    glow = cv2.GaussianBlur(f_grad, (17, 17), 0)
+                    frame = cv2.addWeighted(frame, 1.0, glow, 0.35, 0)
+
+                idx = (mask > 0)
+                frame[idx] = f_grad[idx]
+
+        # 3. Template Mockup & Synced Lyrics Overlay via Pillow
+        lrc_enable = cfg.get('lrc_enable', '1') not in ['0', 'false', False]
+        active_lyric = self.get_active_lyric(t_sec) if lrc_enable else ""
+        
+        needs_pil = (tpl not in ['none', ''] or (lrc_enable and active_lyric))
+        if needs_pil:
+            img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(img_pil, 'RGBA')
+            title_text = cfg.get('title', 'KeiBot Studio Track')
+
+            if tpl == 'classic':
+                card_w, card_h = 560, 260
+                card_x = (w - card_w) // 2
+                card_y = (h - card_h) // 2 - 40
+                draw.rounded_rectangle([card_x, card_y, card_x + card_w, card_y + card_h], radius=20, fill=(15, 23, 42, 190), outline=(255, 255, 255, 30), width=2)
+                
+                disc_x = card_x + 110; disc_y = card_y + card_h // 2; disc_r = 75
+                draw.ellipse([disc_x - disc_r, disc_y - disc_r, disc_x + disc_r, disc_y + disc_r], fill=(9, 13, 22, 255), outline=(30, 41, 59, 255), width=6)
+                draw.ellipse([disc_x - 32, disc_y - 32, disc_x + 32, disc_y + 32], fill=tuple(reversed(self.col_bot)), outline=(0,0,0,255), width=2)
+                draw.ellipse([disc_x - 10, disc_y - 10, disc_x + 10, disc_y + 10], fill=(0, 0, 0, 255))
+                
+                draw.text((card_x + 220, card_y + 70), title_text[:30], fill=(255, 255, 255, 255), font=self.font_title)
+                draw.text((card_x + 220, card_y + 105), "KeiBot Music Studio Player", fill=(148, 163, 184, 255), font=self.font_sub)
+                if active_lyric:
+                    draw.text((card_x + 220, card_y + 155), active_lyric, fill=tuple(reversed(self.col_bot)), font=self.font_lyric)
+
+            elif tpl == 'spotify':
+                card_w, card_h = min(780, int(w * 0.85)), 110
+                card_x = (w - card_w) // 2
+                card_y = h - card_h - 50
+                draw.rounded_rectangle([card_x, card_y, card_x + card_w, card_y + card_h], radius=16, fill=(18, 18, 18, 225), outline=(255, 255, 255, 38), width=2)
+                draw.text((card_x + 30, card_y + 25), title_text[:40], fill=(255, 255, 255, 255), font=self.font_title)
+                draw.text((card_x + 30, card_y + 60), active_lyric if active_lyric else "Official Music Track", fill=tuple(reversed(self.col_bot)), font=self.font_sub)
+
+            elif tpl == 'podcast':
+                box_w, box_h = 540, 180
+                box_x = (w - box_w) // 2
+                box_y = (h - box_h) // 2 - 30
+                draw.rounded_rectangle([box_x, box_y, box_x + box_w, box_y + box_h], radius=16, fill=(15, 23, 42, 215), outline=tuple(reversed(self.col_bot)) + (100,), width=2)
+                draw.text((box_x + 24, box_y + 30), "🎙️ OFFICIAL PODCAST / EPISODE", fill=tuple(reversed(self.col_bot)), font=self.font_sub)
+                draw.text((box_x + 24, box_y + 65), title_text[:35], fill=(255, 255, 255, 255), font=self.font_title)
+
+            if active_lyric and tpl != 'classic':
+                lrc_px = safe_num(cfg.get('lrc_pos_x'), 50) / 100.0
+                lrc_py = safe_num(cfg.get('lrc_pos_y'), 78) / 100.0
+                lrc_x = int(w * lrc_px); lrc_y = int(h * lrc_py)
+                
+                bbox = draw.textbbox((0, 0), active_lyric, font=self.font_lyric)
+                tw = bbox[2] - bbox[0]; th = bbox[3] - bbox[1]
+                tx = lrc_x - tw // 2; ty = lrc_y - th // 2
+                pad_x, pad_y = 16, 8
+                draw.rounded_rectangle([tx - pad_x, ty - pad_y, tx + tw + pad_x, ty + th + pad_y], radius=8, fill=(15, 23, 42, 190), outline=tuple(reversed(self.col_bot)) + (150,), width=1)
+                draw.text((tx, ty), active_lyric, fill=(255, 255, 255, 255), font=self.font_lyric)
+
+            frame = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
         return frame
 
 def hex_to_rgb(h): return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
 
 def render_video_core(audio_path, bg_paths, output_path, duration, cfg):
     w, h = 1280, 720; fps = 30; total_f = int(duration * fps)
-    vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part')))
+    vis = VisualEngine(cfg)
     bg = BackgroundManager(bg_paths, w, h)
     audio = AudioBrain(); audio.load(audio_path)
     cmd = [get_ffmpeg_path(), '-y', '-threads', '2', '-f', 'rawvideo', '-vcodec', 'rawvideo', '-s', f'{w}x{h}', '-pix_fmt', 'bgr24', '-r', str(fps), '-i', '-', '-i', audio_path, '-t', str(duration), '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p', output_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for f in range(total_f):
-        v, _, bars = audio.get_data(f/fps, int(cfg.get('bar_count', 64)))
-        proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg).tobytes())
+        t_sec = f / fps
+        v, _, bars = audio.get_data(t_sec, int(cfg.get('bar_count', 64)))
+        proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg, t_sec=t_sec).tobytes())
     proc.stdin.close(); proc.wait(); bg.close()
 
 def background_worker():
@@ -489,7 +709,7 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         save_tasks_db()
 
         rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
-        vis = VisualEngine(hex_to_rgb(cfg.get('color_bot')), hex_to_rgb(cfg.get('color_top')), hex_to_rgb(cfg.get('color_part')))
+        vis = VisualEngine(cfg)
         bg = BackgroundManager(bg_paths, 1280, 720)
         audio = AudioBrain(); audio.load(m_audio, max_duration=600)
         
@@ -499,8 +719,9 @@ def run_live_stream(task_id, stream_key, audio_paths, bg_paths, start_time_str, 
         f_idx = 0; end_obj = datetime.strptime(end_time_str.replace('T', ' '), "%Y-%m-%d %H:%M")
         while True:
             if stop_flags.get(task_id) or datetime.now() >= end_obj: break
-            v, _, bars = audio.get_data((f_idx/30) % audio.duration if audio.duration > 0 else 0, int(cfg.get('bar_count', 64)))
-            proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg).tobytes()); f_idx += 1
+            t_live = (f_idx / 30) % audio.duration if audio.duration > 0 else (f_idx / 30)
+            v, _, bars = audio.get_data(t_live, int(cfg.get('bar_count', 64)))
+            proc.stdin.write(vis.process(bg.get_frame(), v, bars, cfg, t_sec=t_live).tobytes()); f_idx += 1
             
         proc.terminate(); bg.close(); shutil.rmtree(f"uploads/live_{task_id}", ignore_errors=True); active_stream_keys.discard(stream_key)
         if stop_flags.get(task_id): move_to_history(task_id, "Dihentikan Paksa ⏹️")
